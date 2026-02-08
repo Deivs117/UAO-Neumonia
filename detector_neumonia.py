@@ -19,9 +19,48 @@ import img2pdf
 import numpy as np
 import time
 import tensorflow as tf
-tf.compat.v1.disable_eager_execution()
-tf.compat.v1.experimental.output_all_intermediates(True)
+# tf.compat.v1.disable_eager_execution()
+# tf.compat.v1.experimental.output_all_intermediates(True)
 import cv2
+
+import os
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import load_model
+
+# Cache para no recargar el modelo cada vez que presionas "Predecir"
+_MODEL = None
+
+def model_fun():
+    """
+    Carga el modelo .h5 una sola vez y lo reutiliza.
+    Busca primero una ruta por variable de entorno y luego nombres comunes.
+    """
+    global _MODEL
+    if _MODEL is not None:
+        return _MODEL
+
+    # 1) Permite definir la ruta sin tocar el código:
+    #    set NEUMONIA_MODEL_PATH=mi_modelo.h5   (Windows)
+    model_path = os.environ.get("NEUMONIA_MODEL_PATH")
+
+    # 2) Fallbacks si no se define env var
+    candidates = []
+    if model_path:
+        candidates.append(model_path)
+
+    # nombres que aparecen en tu repo/README
+    candidates += ["conv_MLP_84.h5", "WilhemNet86.h5"]
+
+    for p in candidates:
+        if p and os.path.exists(p):
+            _MODEL = load_model(p, compile=False)
+            return _MODEL
+
+    raise FileNotFoundError(
+        "No se encontró el modelo .h5. "
+        "Pon el archivo en la misma carpeta del script "
+        "o define la variable de entorno NEUMONIA_MODEL_PATH con la ruta al .h5."
+    )
 
 
 def grad_cam(array):
