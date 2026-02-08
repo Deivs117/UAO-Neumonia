@@ -10,6 +10,8 @@ __pycache__/
 DICOM/
 JPG/
 
+historial.csv
+
 # Modelos (pesados)
 *.h5
 
