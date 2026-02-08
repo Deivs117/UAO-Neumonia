@@ -428,6 +428,20 @@ class App:
         self.root.geometry("815x560")
         self.root.resizable(False, False)
 
+        # Carpeta de salida para PDFs y CSV (se elige por el usuario)
+        self.output_dir: Optional[str] = None
+
+        # Menú para elegir carpeta sin mover la GUI
+        menubar = tk.Menu(self.root)
+        filemenu = tk.Menu(menubar, tearoff=0)
+        filemenu.add_command(
+            label="Elegir carpeta de salida...",
+            command=self.choose_output_dir,
+        )
+        menubar.add_cascade(label="Archivo", menu=filemenu)
+        self.root.config(menu=menubar)
+
+
         bold_font = font.Font(weight="bold")
 
         self.lab1 = ttk.Label(self.root, text="Imagen Radiográfica", font=bold_font)
@@ -548,6 +562,32 @@ class App:
         self.text1.focus_set()
         self.root.mainloop()
 
+    def choose_output_dir(self) -> None:
+        """Permite al usuario elegir la carpeta donde se guardan PDFs y CSV."""
+        folder = filedialog.askdirectory(title="Seleccione carpeta para guardar PDFs y CSV")
+        if not folder:
+            return
+        self.output_dir = folder
+        showinfo(title="Carpeta de salida", message=f"Carpeta seleccionada:\n{self.output_dir}")
+
+
+    def ensure_output_dir(self) -> bool:
+        """
+        Asegura que exista una carpeta de salida seleccionada.
+        Si no existe, se solicita al usuario.
+        """
+        if self.output_dir and os.path.isdir(self.output_dir):
+            return True
+
+        folder = filedialog.askdirectory(title="Seleccione carpeta para guardar PDFs y CSV")
+        if not folder:
+            showinfo(title="Carpeta de salida", message="No se seleccionó carpeta de salida.")
+            return False
+
+        self.output_dir = folder
+        return True
+
+
     def load_img_file(self) -> None:
         """
         Abre un diálogo para seleccionar una imagen, la carga y la muestra.
@@ -613,18 +653,28 @@ class App:
     def save_results_csv(self) -> None:
         """
         Guarda en historial.csv: cédula - label - probabilidad.
+        Requiere cédula y predicción previa.
         """
+        cedula = self.text1.get().strip()
+        if not cedula:
+            showinfo(title="Guardar", message="Ingresa la cédula antes de guardar en CSV.")
+            return
+
         if self.label is None or self.proba is None:
             showinfo(title="Guardar", message="Primero realiza una predicción.")
             return
 
-        with open("historial.csv", "a", newline="", encoding="utf-8") as csvfile:
-            writer = csv.writer(csvfile, delimiter="-")
-            writer.writerow(
-                [self.text1.get(), self.label, f"{self.proba:.2f}%"]
-            )
+        if not self.ensure_output_dir():
+            return
 
-        showinfo(title="Guardar", message="Los datos se guardaron con éxito.")
+        csv_path = os.path.join(self.output_dir, "historial.csv")
+
+        with open(csv_path, "a", newline="", encoding="utf-8") as csvfile:
+            writer = csv.writer(csvfile, delimiter="-")
+            writer.writerow([cedula, self.label, f"{self.proba:.2f}%"])
+
+        showinfo(title="Guardar", message=f"Datos guardados con éxito en:\n{csv_path}")
+
 
     def create_pdf(self) -> None:
         """
@@ -653,8 +703,11 @@ class App:
 
             self.original_pil = img2show.copy()
 
+        if not self.ensure_output_dir():
+            return
+
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        pdf_path = f"reporte_{cedula}_{ts}.pdf"
+        pdf_path = os.path.join(self.output_dir, f"reporte_{cedula}_{ts}.pdf")
 
         generate_pdf_report(
             pdf_path=pdf_path,
