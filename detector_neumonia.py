@@ -4,6 +4,7 @@
 from tkinter import *
 from tkinter import ttk, font, filedialog, Entry
 
+import pydicom
 from tkinter.messagebox import askokcancel, showinfo, WARNING
 import getpass
 from PIL import ImageTk, Image
@@ -69,7 +70,7 @@ def predict(array):
 
 
 def read_dicom_file(path):
-    img = dicom.read_file(path)
+    img = pydicom.dcmread(path)
     img_array = img.pixel_array
     img2show = Image.fromarray(img_array)
     img2 = img_array.astype(float)
