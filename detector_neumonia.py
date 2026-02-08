@@ -8,6 +8,10 @@ import pydicom
 from tkinter.messagebox import askokcancel, showinfo, WARNING
 import getpass
 from PIL import ImageTk, Image
+try:
+    RESAMPLE = Image.Resampling.LANCZOS  
+except AttributeError:
+    RESAMPLE = Image.LANCZOS            
 import csv
 import pyautogui
 import tkcap
@@ -197,7 +201,7 @@ class App:
         )
         if filepath:
             self.array, img2show = read_dicom_file(filepath)
-            self.img1 = img2show.resize((250, 250), Image.ANTIALIAS)
+            self.img1 = img2show.resize((250, 250), RESAMPLE)
             self.img1 = ImageTk.PhotoImage(self.img1)
             self.text_img1.image_create(END, image=self.img1)
             self.button1["state"] = "enabled"
@@ -205,7 +209,7 @@ class App:
     def run_model(self):
         self.label, self.proba, self.heatmap = predict(self.array)
         self.img2 = Image.fromarray(self.heatmap)
-        self.img2 = self.img2.resize((250, 250), Image.ANTIALIAS)
+        self.img2 = self.img2.resize((250, 250), RESAMPLE)
         self.img2 = ImageTk.PhotoImage(self.img2)
         print("OK")
         self.text_img2.image_create(END, image=self.img2)
