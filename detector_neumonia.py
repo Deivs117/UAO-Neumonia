@@ -17,15 +17,19 @@ from __future__ import annotations
 # =========================
 # Standard library imports
 # =========================
-import csv
 import os
+import warnings
+import csv
 from datetime import datetime
 from typing import Optional, Tuple
 
+# Logs/Warnings OFF antes de TF
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 import tkinter as tk
-from tkinter import filedialog
-from tkinter import font
-from tkinter import ttk
+from tkinter import filedialog, font, ttk
 from tkinter.messagebox import WARNING, askokcancel, showinfo
 
 # =========================
@@ -36,12 +40,19 @@ import numpy as np
 import pydicom
 import tensorflow as tf
 from PIL import Image, ImageOps, ImageTk
+
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from tensorflow.keras.models import load_model
 
+tf.get_logger().setLevel("ERROR")
+try:
+    from absl import logging as absl_logging
+    absl_logging.set_verbosity(absl_logging.ERROR)
+except Exception:
+    pass
 
 # =========================
 # Constants / Globals
@@ -132,7 +143,7 @@ def grad_cam(array: np.ndarray, layer_name: str = "conv10_thisone") -> np.ndarra
     )
 
     with tf.GradientTape() as tape:
-        conv_out, preds = grad_model(img, training=False)
+        conv_out, preds = grad_model(pack_input(grad_model, img), training=False)
         class_idx = tf.argmax(preds[0])
         loss = preds[:, class_idx]
 
@@ -154,6 +165,18 @@ def grad_cam(array: np.ndarray, layer_name: str = "conv10_thisone") -> np.ndarra
     # return RGB for PIL
     return superimposed[:, :, ::-1]
 
+def first_input_name(model) -> str:
+    """Obtiene el nombre del primer input del modelo (sin ':0')."""
+    if hasattr(model, "input_names") and model.input_names:
+        return model.input_names[0]
+    name = getattr(model.inputs[0], "name", "input_1")
+    return name.split(":")[0]
+
+
+def pack_input(model, batch):
+    """Empaqueta batch según el nombre del input esperado."""
+    return {first_input_name(model): batch}
+
 
 def predict(array: np.ndarray) -> Tuple[str, float, np.ndarray]:
     """
@@ -170,11 +193,13 @@ def predict(array: np.ndarray) -> Tuple[str, float, np.ndarray]:
     batch = preprocess(array)
     model = model_fun()
 
-    preds = model.predict(batch)
+    preds = model.predict(pack_input(model, batch), verbose=0)
+    if isinstance(preds, (list, tuple)):
+        preds = preds[0]
+
     pred_idx = int(np.argmax(preds))
     proba = float(np.max(preds)) * 100.0
-
-    label = CLASS_NAMES[pred_idx] if 0 <= pred_idx < len(CLASS_NAMES) else str(pred_idx)
+    label = CLASS_NAMES[pred_idx]
 
     heatmap = grad_cam(array)
     return label, proba, heatmap
