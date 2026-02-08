@@ -7,7 +7,7 @@ from tkinter import ttk, font, filedialog, Entry
 import pydicom
 from tkinter.messagebox import askokcancel, showinfo, WARNING
 import getpass
-from PIL import ImageTk, Image
+from PIL import ImageTk, Image, ImageOps
 try:
     RESAMPLE = Image.Resampling.LANCZOS  
 except AttributeError:
@@ -63,32 +63,38 @@ def model_fun():
     )
 
 
-def grad_cam(array):
+def grad_cam(array, layer_name="conv10_thisone"):
     img = preprocess(array)
     model = model_fun()
-    preds = model.predict(img)
-    argmax = np.argmax(preds[0])
-    output = model.output[:, argmax]
-    last_conv_layer = model.get_layer("conv10_thisone")
-    grads = K.gradients(output, last_conv_layer.output)[0]
-    pooled_grads = K.mean(grads, axis=(0, 1, 2))
-    iterate = K.function([model.input], [pooled_grads, last_conv_layer.output[0]])
-    pooled_grads_value, conv_layer_output_value = iterate(img)
-    for filters in range(64):
-        conv_layer_output_value[:, :, filters] *= pooled_grads_value[filters]
-    # creating the heatmap
-    heatmap = np.mean(conv_layer_output_value, axis=-1)
-    heatmap = np.maximum(heatmap, 0)  # ReLU
-    heatmap /= np.max(heatmap)  # normalize
-    heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[2]))
+
+    # Si el modelo tiene múltiples salidas, tomamos la primera (consistente con preds[0])
+    out_tensor = model.outputs[0] if isinstance(model.outputs, (list, tuple)) else model.output
+
+    grad_model = tf.keras.models.Model(
+        inputs=model.inputs,
+        outputs=[model.get_layer(layer_name).output, out_tensor],
+    )
+
+    with tf.GradientTape() as tape:
+        conv_out, preds = grad_model(img, training=False)
+        class_idx = tf.argmax(preds[0])
+        loss = preds[:, class_idx]
+
+    grads = tape.gradient(loss, conv_out)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+
+    conv_out = conv_out[0]
+    heatmap = tf.reduce_sum(conv_out * pooled_grads, axis=-1)
+    heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-8)
+    heatmap = heatmap.numpy()
+
+    heatmap = cv2.resize(heatmap, (512, 512))
     heatmap = np.uint8(255 * heatmap)
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+
     img2 = cv2.resize(array, (512, 512))
-    hif = 0.8
-    transparency = heatmap * hif
-    transparency = transparency.astype(np.uint8)
-    superimposed_img = cv2.add(transparency, img2)
-    superimposed_img = superimposed_img.astype(np.uint8)
+    superimposed_img = cv2.add((heatmap * 0.8).astype(np.uint8), img2).astype(np.uint8)
+
     return superimposed_img[:, :, ::-1]
 
 
@@ -143,6 +149,20 @@ def preprocess(array):
     array = np.expand_dims(array, axis=0)
     return array
 
+def fit_square(pil_img: Image.Image, size: int = 250, fill: int = 0) -> Image.Image:
+    """Ajusta una imagen al cuadro size x size manteniendo aspecto y con padding."""
+    if pil_img.mode not in ("L", "RGB"):
+        pil_img = pil_img.convert("RGB")
+
+    # Contain mantiene el aspect ratio
+    pil_fit = ImageOps.contain(pil_img, (size, size), RESAMPLE)
+
+    # Crea fondo y centra
+    bg = Image.new(pil_fit.mode, (size, size), color=fill if pil_fit.mode == "L" else (fill, fill, fill))
+    x = (size - pil_fit.size[0]) // 2
+    y = (size - pil_fit.size[1]) // 2
+    bg.paste(pil_fit, (x, y))
+    return bg
 
 class App:
     def __init__(self):
@@ -177,11 +197,21 @@ class App:
         #   GET ID
         self.ID_content = self.text1.get()
 
-        #   TWO IMAGE INPUT BOXES
-        self.text_img1 = Text(self.root, width=31, height=15)
-        self.text_img2 = Text(self.root, width=31, height=15)
-        self.text2 = Text(self.root)
-        self.text3 = Text(self.root)
+       # Variables para mostrar resultado/probabilidad (sin insertar texto en Text widgets)
+        self.pred_var = StringVar(value="")
+        self.proba_var = StringVar(value="")
+
+        # Paneles de imagen (en píxeles, no en caracteres)
+        self.img_panel1 = Label(self.root, bd=1, relief="solid", bg="#111", fg="white", text="Sin imagen", compound="center")
+        self.img_panel2 = Label(self.root, bd=1, relief="solid", bg="#111", fg="white", text="Sin heatmap", compound="center")
+
+        # Caja de texto bonita para resultado y probabilidad (readonly)
+        self.pred_box = ttk.Entry(self.root, textvariable=self.pred_var, width=12, justify="center", state="readonly")
+        self.proba_box = ttk.Entry(self.root, textvariable=self.proba_var, width=12, justify="center", state="readonly")
+
+        # Mantener referencias para que Tkinter no “pierda” las imágenes
+        self.img1_tk = None
+        self.img2_tk = None
 
         #   BUTTONS
         self.button1 = ttk.Button(
@@ -209,10 +239,12 @@ class App:
         self.button4.place(x=520, y=460)
         self.button6.place(x=370, y=460)
         self.text1.place(x=200, y=350)
-        self.text2.place(x=610, y=350, width=90, height=30)
-        self.text3.place(x=610, y=400, width=90, height=30)
-        self.text_img1.place(x=65, y=90)
-        self.text_img2.place(x=500, y=90)
+        self.pred_box.place(x=610, y=350, width=90, height=30)
+        self.proba_box.place(x=610, y=400, width=90, height=30)
+
+        self.img_panel1.place(x=65, y=90, width=250, height=250)
+        self.img_panel2.place(x=500, y=90, width=250, height=250)
+
 
         #   FOCUS ON PATIENT ID
         self.text1.focus_set()
@@ -226,7 +258,7 @@ class App:
         #   RUN LOOP
         self.root.mainloop()
 
-    #   METHODS
+        #   METHODS
     def load_img_file(self):
         filepath = filedialog.askopenfilename(
             initialdir="/",
@@ -238,22 +270,42 @@ class App:
                 ("png files", "*.png"),
             ),
         )
-        if filepath:
+        if not filepath:
+            return
+
+        ext = os.path.splitext(filepath)[1].lower()
+        if ext == ".dcm":
             self.array, img2show = read_dicom_file(filepath)
-            self.img1 = img2show.resize((250, 250), RESAMPLE)
-            self.img1 = ImageTk.PhotoImage(self.img1)
-            self.text_img1.image_create(END, image=self.img1)
-            self.button1["state"] = "enabled"
+        else:
+            self.array, img2show = read_jpg_file(filepath)
+
+        # Limpiar resultados anteriores
+        self.pred_var.set("")
+        self.proba_var.set("")
+        self.img_panel2.configure(image="", text="Sin heatmap")
+        self.img2_tk = None
+
+        # Render imagen izquierda (sin deformar)
+        pil_img = fit_square(img2show, 250, fill=0)
+        self.img1_tk = ImageTk.PhotoImage(pil_img)
+        self.img_panel1.configure(image=self.img1_tk, text="")
+
+        self.button1["state"] = "enabled"
+
 
     def run_model(self):
         self.label, self.proba, self.heatmap = predict(self.array)
-        self.img2 = Image.fromarray(self.heatmap)
-        self.img2 = self.img2.resize((250, 250), RESAMPLE)
-        self.img2 = ImageTk.PhotoImage(self.img2)
-        print("OK")
-        self.text_img2.image_create(END, image=self.img2)
-        self.text2.insert(END, self.label)
-        self.text3.insert(END, "{:.2f}".format(self.proba) + "%")
+
+        # Heatmap (derecha)
+        pil_heat = Image.fromarray(self.heatmap).convert("RGB")
+        pil_heat = fit_square(pil_heat, 250, fill=0)
+        self.img2_tk = ImageTk.PhotoImage(pil_heat)
+        self.img_panel2.configure(image=self.img2_tk, text="")
+
+        # Texto (sin acumular ni pisar imagen)
+        self.pred_var.set(self.label)
+        self.proba_var.set(f"{self.proba:.2f}%")
+
 
     def save_results_csv(self):
         with open("historial.csv", "a") as csvfile:
@@ -278,14 +330,21 @@ class App:
         answer = askokcancel(
             title="Confirmación", message="Se borrarán todos los datos.", icon=WARNING
         )
-        if answer:
-            self.text1.delete(0, "end")
-            self.text2.delete(1.0, "end")
-            self.text3.delete(1.0, "end")
-            self.text_img1.delete(self.img1, "end")
-            self.text_img2.delete(self.img2, "end")
-            showinfo(title="Borrar", message="Los datos se borraron con éxito")
+        if not answer:
+            return
 
+        self.text1.delete(0, "end")
+        self.pred_var.set("")
+        self.proba_var.set("")
+        self.array = None
+
+        self.img_panel1.configure(image="", text="Sin imagen")
+        self.img_panel2.configure(image="", text="Sin heatmap")
+        self.img1_tk = None
+        self.img2_tk = None
+
+        self.button1["state"] = "disabled"
+        showinfo(title="Borrar", message="Los datos se borraron con éxito")
 
 def main():
     my_app = App()
