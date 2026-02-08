@@ -18,7 +18,6 @@ import warnings
 from datetime import datetime
 from typing import Optional
 
-# Silencio de logs TF (debe ir antes de importar módulos que importen TF)
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -36,9 +35,8 @@ from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
-from integrator import predict_from_array
-from read_img import load_image
-
+from src.neumonia_app.integrator import predict_from_array
+from src.neumonia_app.read_img import load_image
 
 try:
     RESAMPLE = Image.Resampling.LANCZOS

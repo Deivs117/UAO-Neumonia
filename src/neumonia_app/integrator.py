@@ -14,9 +14,9 @@ from typing import Tuple
 
 import numpy as np
 
-from grad_cam import generate_grad_cam
-from load_model import get_model
-from preprocess_img import preprocess_image
+from src.neumonia_app.grad_cam import generate_grad_cam
+from src.neumonia_app.load_model import get_model
+from src.neumonia_app.preprocess_img import preprocess_image
 
 CLASS_NAMES = ["bacteriana", "normal", "viral"]
 

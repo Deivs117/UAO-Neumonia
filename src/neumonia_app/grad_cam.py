@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
-from preprocess_img import preprocess_image
+from src.neumonia_app.preprocess_img import preprocess_image
 
 
 def _first_input_name(model) -> str:
