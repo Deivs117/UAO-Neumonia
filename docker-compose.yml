@@ -1,0 +1,14 @@
+services:
+  neumonia-gui:
+    build: .
+    image: neumonia-gui:latest
+    ports:
+      - "6080:6080"
+      - "5900:5900"
+    environment:
+      - PYTHONPATH=/app/src
+      - NEUMONIA_MODEL_PATH=/app/models/conv_MLP_84.h5
+    volumes:
+      - ./models:/app/models:ro
+      - ./data/input:/app/data/input:ro
+      - ./data/output:/app/data/output
