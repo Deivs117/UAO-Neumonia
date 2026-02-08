@@ -27,6 +27,13 @@ import os
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import load_model
 
+from datetime import datetime
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
+
 # Cache para no recargar el modelo cada vez que presionas "Predecir"
 _MODEL = None
 
@@ -164,6 +171,155 @@ def fit_square(pil_img: Image.Image, size: int = 250, fill: int = 0) -> Image.Im
     bg.paste(pil_fit, (x, y))
     return bg
 
+def generate_pdf_report(
+    pdf_path: str,
+    cedula: str,
+    label: str,
+    proba: float,
+    original_pil,
+    heatmap_np,
+):
+    """
+    Genera un PDF tipo reporte (no screenshot):
+    - Cédula
+    - Imagen original
+    - Imagen con Grad-CAM
+    - Predicción y probabilidad
+    - Texto por defecto según clase
+    """
+    c = canvas.Canvas(pdf_path, pagesize=A4)
+    page_w, page_h = A4
+
+    margin = 2.0 * cm
+    y = page_h - margin
+
+    # Header
+    c.setFont("Helvetica-Bold", 15)
+    c.drawString(margin, y, "REPORTE DE APOYO AL DIAGNÓSTICO DE NEUMONÍA (IA)")
+    y -= 0.8 * cm
+
+    c.setFont("Helvetica", 10)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    c.drawString(margin, y, f"Fecha/Hora: {now}")
+    y -= 0.55 * cm
+    c.drawString(margin, y, f"Cédula: {cedula}")
+    y -= 0.9 * cm
+
+    # Resultado
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(margin, y, "Resultado del modelo")
+    y -= 0.6 * cm
+
+    c.setFont("Helvetica", 11)
+    c.drawString(margin, y, f"Clase estimada: {pretty_label(label)}")
+    y -= 0.55 * cm
+    c.drawString(margin, y, f"Probabilidad: {proba:.2f}%")
+    y -= 1.0 * cm
+
+    # Bloque de imágenes (2 columnas)
+    # Caja disponible en ancho:
+    usable_w = page_w - 2 * margin
+    gap = 0.8 * cm
+    box_w = (usable_w - gap) / 2.0
+    box_h = 8.5 * cm
+
+    # Títulos
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(margin, y, "Imagen original")
+    c.drawString(margin + box_w + gap, y, "Grad-CAM (mapa de calor)")
+    y -= 0.4 * cm
+
+    # Preparar imágenes
+    # Original PIL
+    orig = original_pil.convert("RGB")
+    orig_reader = ImageReader(orig)
+
+    # Heatmap numpy -> PIL
+    from PIL import Image as PILImage  # import local para no ensuciar imports globales
+    if heatmap_np.ndim == 2:
+        hm_pil = PILImage.fromarray(heatmap_np).convert("RGB")
+    else:
+        hm_pil = PILImage.fromarray(heatmap_np).convert("RGB")
+    hm_reader = ImageReader(hm_pil)
+
+    # Dibujar imágenes “encajadas” en sus cajas
+    img_y = y - box_h
+    c.rect(margin, img_y, box_w, box_h, stroke=1, fill=0)
+    c.rect(margin + box_w + gap, img_y, box_w, box_h, stroke=1, fill=0)
+
+    c.drawImage(orig_reader, margin, img_y, width=box_w, height=box_h, preserveAspectRatio=True, anchor="c")
+    c.drawImage(hm_reader, margin + box_w + gap, img_y, width=box_w, height=box_h, preserveAspectRatio=True, anchor="c")
+
+    y = img_y - 1.0 * cm
+
+    # Texto automático
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(margin, y, "Observación automática")
+    y -= 0.6 * cm
+
+    c.setFont("Helvetica", 10)
+    text = c.beginText(margin, y)
+    for line in default_report_text(label).splitlines():
+        text.textLine(line)
+    c.drawText(text)
+
+    # Footer
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawString(
+        margin,
+        1.2 * cm,
+        "Este reporte es generado automáticamente para fines de apoyo/educación. No reemplaza evaluación clínica.",
+    )
+
+    c.showPage()
+    c.save()
+
+def default_report_text(label: str) -> str:
+    """Texto por defecto según clase predicha (bacteriana | normal | viral)."""
+    l = (label or "").strip().lower()
+
+    if l == "normal":
+        return (
+            "Resultado sugerido por el modelo: NORMAL (sin hallazgos compatibles con neumonía).\n\n"
+            "Interpretación: La radiografía no presenta patrones típicos de neumonía según el modelo.\n\n"
+            "Nota: Este resultado es una estimación automatizada y NO constituye un diagnóstico. \n\n"
+            "La interpretación final debe realizarla personal médico."
+        )
+
+    if l == "viral":
+        return (
+            "Resultado sugerido por el modelo: NEUMONÍA VIRAL.\n\n"
+            "Interpretación: El modelo detecta patrones radiográficos compatibles con neumonía de origen viral.\n\n"
+            "Nota: Este resultado es una estimación automatizada y NO constituye un diagnóstico. \n\n"
+            "La interpretación final debe realizarla personal médico."
+        )
+
+    if l == "bacteriana":
+        return (
+            "Resultado sugerido por el modelo: NEUMONÍA BACTERIANA.\n\n"
+            "Interpretación: El modelo detecta patrones radiográficos compatibles con neumonía de origen bacteriano.\n\n"
+            "Nota: Este resultado es una estimación automatizada y NO constituye un diagnóstico. \n\n"
+            "La interpretación final debe realizarla personal médico."
+        )
+
+    # Fallback por seguridad (si llega algo inesperado)
+    return (
+        f"Resultado sugerido por el modelo: {label}\n\n"
+        "Nota: Este resultado es una estimación automatizada y NO constituye un diagnóstico. \n\n"
+        "La interpretación final debe realizarla personal médico."
+    )
+
+def pretty_label(label: str) -> str:
+    l = (label or "").strip().lower()
+    if l == "normal":
+        return "Normal"
+    if l == "viral":
+        return "Neumonía viral"
+    if l == "bacteriana":
+        return "Neumonía bacteriana"
+    return label
+
+
 class App:
     def __init__(self):
         self.root = Tk()
@@ -261,23 +417,29 @@ class App:
         #   METHODS
     def load_img_file(self):
         filepath = filedialog.askopenfilename(
-            initialdir="/",
             title="Select image",
             filetypes=(
                 ("DICOM", "*.dcm"),
                 ("JPEG", "*.jpeg"),
-                ("jpg files", "*.jpg"),
-                ("png files", "*.png"),
+                ("JPG", "*.jpg"),
+                ("PNG", "*.png"),
+                ("All files", "*.*"),
             ),
         )
         if not filepath:
             return
+
+        # 1) Guardar ruta seleccionada (viene de cualquier carpeta, no importa)
+        self.filepath = filepath
 
         ext = os.path.splitext(filepath)[1].lower()
         if ext == ".dcm":
             self.array, img2show = read_dicom_file(filepath)
         else:
             self.array, img2show = read_jpg_file(filepath)
+
+        # 2) Guardar una COPIA de la imagen original para el PDF (sin resize)
+        self.original_pil = img2show.copy()
 
         # Limpiar resultados anteriores
         self.pred_var.set("")
@@ -316,15 +478,44 @@ class App:
             showinfo(title="Guardar", message="Los datos se guardaron con éxito.")
 
     def create_pdf(self):
-        cap = tkcap.CAP(self.root)
-        ID = "Reporte" + str(self.reportID) + ".jpg"
-        img = cap.capture(ID)
-        img = Image.open(ID)
-        img = img.convert("RGB")
-        pdf_path = r"Reporte" + str(self.reportID) + ".pdf"
-        img.save(pdf_path)
-        self.reportID += 1
-        showinfo(title="PDF", message="El PDF fue generado con éxito.")
+        cedula = self.text1.get().strip()
+        if not cedula:
+            showinfo(title="PDF", message="Ingresa la cédula antes de generar el reporte.")
+            return
+
+        # Debe existir predicción y heatmap
+        if getattr(self, "heatmap", None) is None or getattr(self, "label", None) is None:
+            showinfo(title="PDF", message="Primero carga una imagen y presiona 'Predecir'.")
+            return
+
+        # Si no está en memoria, intenta reconstruirla desde la ruta seleccionada
+        if getattr(self, "original_pil", None) is None:
+            fp = getattr(self, "filepath", None)
+            if not fp:
+                showinfo(title="PDF", message="No se encontró la imagen original para el reporte.")
+                return
+
+            ext = os.path.splitext(fp)[1].lower()
+            if ext == ".dcm":
+                _, img2show = read_dicom_file(fp)
+            else:
+                _, img2show = read_jpg_file(fp)
+
+            self.original_pil = img2show.copy()
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        pdf_path = f"reporte_{cedula}_{ts}.pdf"
+
+        generate_pdf_report(
+            pdf_path=pdf_path,
+            cedula=cedula,
+            label=self.label,
+            proba=self.proba,
+            original_pil=self.original_pil,
+            heatmap_np=self.heatmap,
+        )
+
+        showinfo(title="PDF", message=f"Reporte generado con éxito:\n{pdf_path}")
 
     def delete(self):
         answer = askokcancel(

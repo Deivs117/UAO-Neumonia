@@ -8,3 +8,4 @@ matplotlib
 pandas
 tensorflow>=2.15.0
 python-xlib
+reportlab
