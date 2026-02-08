@@ -11,6 +11,7 @@ DICOM/
 JPG/
 
 historial.csv
+*.pdf
 
 # Modelos (pesados)
 *.h5
