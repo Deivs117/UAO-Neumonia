@@ -3,8 +3,8 @@ pillow
 tkcap
 pydicom
 img2pdf
-opencv_python
+opencv-python
 matplotlib
 pandas
-tensorflow
+tensorflow>=2.15.0
 python-xlib

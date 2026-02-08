@@ -6,6 +6,13 @@ __pycache__/
 # C extensions
 *.so
 
+# Datos / carpetas locales
+DICOM/
+JPG/
+
+# Modelos (pesados)
+*.h5
+
 # Distribution / packaging
 .Python
 build/
