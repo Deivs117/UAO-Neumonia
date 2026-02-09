@@ -6,9 +6,12 @@ services:
       - "6080:6080"
       - "5900:5900"
     environment:
+      - CUDA_VISIBLE_DEVICES=-1
+      - DEV_WATCHDOG=1
       - PYTHONPATH=/app/src
       - NEUMONIA_MODEL_PATH=/app/models/conv_MLP_84.h5
     volumes:
+      - ./src:/app/src
       - ./models:/app/models:ro
       - ./data/input:/app/data/input:ro
       - ./data/output:/app/data/output

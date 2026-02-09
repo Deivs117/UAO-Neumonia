@@ -240,10 +240,10 @@ class App:
         ttk.Label(self.root, text="Cédula Paciente:", font=bold_font).place(x=65, y=350)
         ttk.Label(
             self.root,
-            text="SOFTWARE PARA EL APOYO AL DIAGNÓSTICO MÉDICO DE NEUMONÍA",
+            text="SOFTWARE PARA EL APOYO AL DIAGNÓSTICO MÉDICO DE NEUMONÍA s",
             font=bold_font,
         ).place(x=122, y=25)
-        ttk.Label(self.root, text="Probabilidad:", font=bold_font).place(x=500, y=400)
+        ttk.Label(self.root, text="Probabilidad: ", font=bold_font).place(x=500, y=400)
 
         self.patient_id_var = tk.StringVar(value="")
         self.text1 = ttk.Entry(self.root, textvariable=self.patient_id_var, width=18)

@@ -2,7 +2,7 @@
 set -e
 
 # Display virtual para Tkinter
-Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset &
+Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
 sleep 0.5
 
 # Window manager liviano
@@ -21,4 +21,5 @@ source /app/.venv/bin/activate
 export NEUMONIA_MODEL_PATH="${NEUMONIA_MODEL_PATH:-/app/models/conv_MLP_84.h5}"
 
 # Ejecutar app (tu paquete está en /app/src por PYTHONPATH)
-uv run python -m neumonia_app.main
+watchmedo auto-restart --directory=/app/src --pattern="*.py" --recursive -- \
+  uv run python -m neumonia_app.main
