@@ -186,29 +186,6 @@ Reiniciar el contenedor:
 docker compose restart neumonia-gui
 ```
 
-### 6.2) Autorestart (opcional) con `DEV_WATCHDOG=1`
-
-La app puede reiniciarse automáticamente cuando cambies archivos `.py` si el contenedor está configurado para eso.
-
-En `docker-compose.yml` activa:
-
-```yaml
-environment:
-  - DEV_WATCHDOG=1
-```
-
-> Esto funciona porque `docker/start_gui.sh` usa `watchmedo auto-restart` cuando `DEV_WATCHDOG=1`.
-
-Luego levanta:
-
-```bash
-docker compose up --build
-```
-
-Cuando guardes cambios en `src/`, la GUI se cerrará y abrirá de nuevo sola.
-
----
-
 ## 7) Uso dentro de la GUI (en noVNC)
 
 ### Cargar imagen
@@ -278,7 +255,3 @@ Y abrir PR: `dev/<tu-nombre>` → `develop`
 ```
 
 ---
-
-Si quieres, pégame tu `docker-compose.yml` actual (solo el servicio) y yo lo ajusto para que el README quede **100% alineado** con los nombres reales del servicio (`neumonia-gui` vs `neumonia-gui-1`), ruta del modelo, y flags (`DEV_WATCHDOG`).
-::contentReference[oaicite:0]{index=0}
-```
