@@ -1,105 +1,284 @@
-## Hola! Bienvenido a la herramienta para la detección rápida de neumonía
+# UAO-Neumonia — App GUI (Tkinter) + Docker (noVNC)
 
-Deep Learning aplicado en el procesamiento de imágenes radiográficas de tórax en formato DICOM con el fin de clasificarlas en 3 categorías diferentes:
+Este repositorio contiene una aplicación con interfaz gráfica (Tkinter) para apoyar la clasificación de neumonía (normal / bacteriana / viral) a partir de imágenes (DICOM / JPG), y genera reportes en PDF + registros CSV.
 
-1. Neumonía Bacteriana
-
-2. Neumonía Viral
-
-3. Sin Neumonía
-
-Aplicación de una técnica de explicación llamada Grad-CAM para resaltar con un mapa de calor las regiones relevantes de la imagen de entrada.
+La app corre:
+- **Local** (opcional) con Python + `uv`
+- **Docker** (recomendado para el equipo) usando **Xvfb + VNC + noVNC** para ver la GUI desde el navegador
 
 ---
 
-## Uso de la herramienta:
+## 1) Requisitos (para el equipo)
 
-A continuación le explicaremos cómo empezar a utilizarla.
+- Git instalado
+- Docker Desktop instalado y funcionando
+- (Opcional) GitHub Desktop
 
-Requerimientos necesarios para el funcionamiento:
-
-- Instale Anaconda para Windows siguiendo las siguientes instrucciones:
-  https://docs.anaconda.com/anaconda/install/windows/
-
-- Abra Anaconda Prompt y ejecute las siguientes instrucciones:
-
-  conda create -n tf tensorflow
-
-  conda activate tf
-
-  cd UAO-Neumonia
-
-  pip install -r requirements.txt
-
-  python detector_neumonia.py
-
-Uso de la Interfaz Gráfica:
-
-- Ingrese la cédula del paciente en la caja de texto
-- Presione el botón 'Cargar Imagen', seleccione la imagen del explorador de archivos del computador (Imagenes de prueba en https://drive.google.com/drive/folders/1WOuL0wdVC6aojy8IfssHcqZ4Up14dy0g?usp=drive_link)
-- Presione el botón 'Predecir' y espere unos segundos hasta que observe los resultados
-- Presione el botón 'Guardar' para almacenar la información del paciente en un archivo excel con extensión .csv
-- Presione el botón 'PDF' para descargar un archivo PDF con la información desplegada en la interfaz
-- Presión el botón 'Borrar' si desea cargar una nueva imagen
+> Nota: en Docker la GUI no se abre como ventana nativa de Windows; se abre por navegador en noVNC.
 
 ---
 
-## Arquitectura de archivos propuesta.
+## 2) Estructura del proyecto
 
-## detector_neumonia.py
+Código fuente (paquete):
+```
 
-Contiene el diseño de la interfaz gráfica utilizando Tkinter.
+src/
+neumonia_app/
+main.py
+integrator.py
+load_model.py
+read_img.py
+preprocess_img.py
+grad_cam.py
 
-Los botones llaman métodos contenidos en otros scripts.
+```
 
-## integrator.py
+Archivos Docker:
+```
 
-Es un módulo que integra los demás scripts y retorna solamente lo necesario para ser visualizado en la interfaz gráfica.
-Retorna la clase, la probabilidad y una imagen el mapa de calor generado por Grad-CAM.
+Dockerfile
+docker/start_gui.sh
+requirements.docker.txt
+docker-compose.yml
 
-## read_img.py
+````
 
-Script que lee la imagen en formato DICOM para visualizarla en la interfaz gráfica. Además, la convierte a arreglo para su preprocesamiento.
-
-## preprocess_img.py
-
-Script que recibe el arreglo proveniento de read_img.py, realiza las siguientes modificaciones:
-
-- resize a 512x512
-- conversión a escala de grises
-- ecualización del histograma con CLAHE
-- normalización de la imagen entre 0 y 1
-- conversión del arreglo de imagen a formato de batch (tensor)
-
-## load_model.py
-
-Script que lee el archivo binario del modelo de red neuronal convolucional previamente entrenado llamado 'WilhemNet86.h5'.
-
-## grad_cam.py
-
-Script que recibe la imagen y la procesa, carga el modelo, obtiene la predicción y la capa convolucional de interés para obtener las características relevantes de la imagen.
+Carpetas **locales** (NO se suben a Git):
+- `models/` → aquí va el modelo `.h5`
+- `data/input/` → imágenes para pruebas (DICOM/JPG)
+- `data/output/` → PDFs y CSV generados
 
 ---
 
-## Acerca del Modelo
+## 3) Preparación local (carpetas y archivos que NO están en Git)
 
-La red neuronal convolucional implementada (CNN) es basada en el modelo implementado por F. Pasa, V.Golkov, F. Pfeifer, D. Cremers & D. Pfeifer
-en su artículo Efcient Deep Network Architectures for Fast Chest X-Ray Tuberculosis Screening and Visualization.
+En la raíz del repo, crear estas carpetas:
 
-Está compuesta por 5 bloques convolucionales, cada uno contiene 3 convoluciones; dos secuenciales y una conexión 'skip' que evita el desvanecimiento del gradiente a medida que se avanza en profundidad.
-Con 16, 32, 48, 64 y 80 filtros de 3x3 para cada bloque respectivamente.
+### Windows (PowerShell)
+```powershell
+mkdir models
+mkdir data
+mkdir data\input
+mkdir data\output
+mkdir assets
+mkdir assets\samples
+mkdir assets\samples\DICOM
+mkdir assets\samples\JPG
+````
 
-Después de cada bloque convolucional se encuentra una capa de max pooling y después de la última una capa de Average Pooling seguida por tres capas fully-connected (Dense) de 1024, 1024 y 3 neuronas respectivamente.
+### Linux/macOS (bash)
 
-Para regularizar el modelo utilizamos 3 capas de Dropout al 20%; dos en los bloques 4 y 5 conv y otra después de la 1ra capa Dense.
+```bash
+mkdir -p models data/input data/output assets/samples/DICOM assets/samples/JPG
+```
 
-## Acerca de Grad-CAM
+### 3.1) Agregar el modelo `.h5` (OBLIGATORIO)
 
-Es una técnica utilizada para resaltar las regiones de una imagen que son importantes para la clasificación. Un mapeo de activaciones de clase para una categoría en particular indica las regiones de imagen relevantes utilizadas por la CNN para identificar esa categoría.
+Coloca el archivo del modelo aquí:
 
-Grad-CAM realiza el cálculo del gradiente de la salida correspondiente a la clase a visualizar con respecto a las neuronas de una cierta capa de la CNN. Esto permite tener información de la importancia de cada neurona en el proceso de decisión de esa clase en particular. Una vez obtenidos estos pesos, se realiza una combinación lineal entre el mapa de activaciones de la capa y los pesos, de esta manera, se captura la importancia del mapa de activaciones para la clase en particular y se ve reflejado en la imagen de entrada como un mapa de calor con intensidades más altas en aquellas regiones relevantes para la red con las que clasificó la imagen en cierta categoría.
+```
+models/conv_MLP_84.h5
+```
 
-## Proyecto original realizado por:
+> Si tu modelo se llama diferente, no hay problema, pero entonces debes actualizar la variable `NEUMONIA_MODEL_PATH` en el `docker-compose.yml` o renombrarlo.
 
-Isabella Torres Revelo - https://github.com/isa-tr
-Nicolas Diaz Salazar - https://github.com/nicolasdiazsalazar
+### 3.2) Agregar imágenes de ejemplo (OPCIONAL)
+
+Coloca algunas imágenes para pruebas:
+
+* DICOM: `assets/samples/DICOM/*.dcm`
+* JPG/PNG: `assets/samples/JPG/*.(jpg|png)`
+
+Para que la app las vea dentro del contenedor, copia algunas también a:
+
+* `data/input/`
+
+Ejemplo:
+
+```
+data/input/ejemplo1.dcm
+data/input/ejemplo2.jpg
+```
+
+---
+
+## 4) Docker (recomendado)
+
+### 4.1) ¿Cómo funciona la GUI en Docker?
+
+Dentro del contenedor se levanta un display virtual (Xvfb) y se expone por:
+
+* **VNC** en el puerto `5900`
+* **noVNC (web)** en el puerto `6080`
+
+Tú vas a ver la GUI en tu navegador:
+
+* [http://localhost:6080/vnc.html](http://localhost:6080/vnc.html)
+
+### 4.2) Conexión entre carpetas (volúmenes)
+
+Docker monta estas carpetas del host al contenedor:
+
+| Host (tu PC)    | Contenedor         | Uso                  |
+| --------------- | ------------------ | -------------------- |
+| `./src`         | `/app/src`         | Código (modo dev)    |
+| `./models`      | `/app/models`      | Modelo `.h5`         |
+| `./data/input`  | `/app/data/input`  | Imágenes de prueba   |
+| `./data/output` | `/app/data/output` | PDFs y CSV generados |
+
+Así, si agregas imágenes nuevas a `data/input/` **después** de construir la imagen, el contenedor las ve inmediatamente (porque es un volumen).
+
+---
+
+## 5) Comandos exactos para construir y correr
+
+### Opción A — Docker Compose (recomendado)
+
+En la raíz:
+
+```bash
+docker compose up --build
+```
+
+Luego abre:
+
+* [http://localhost:6080/vnc.html](http://localhost:6080/vnc.html)
+
+Para detener:
+
+```bash
+docker compose down
+```
+
+### Opción B — Docker Build + Docker Run (alternativa)
+
+Construir la imagen:
+
+```bash
+docker build -t neumonia-gui .
+```
+
+Correr el contenedor (ejemplo PowerShell):
+
+```powershell
+docker run --rm -it `
+  -p 6080:6080 -p 5900:5900 `
+  -e NEUMONIA_MODEL_PATH=/app/models/conv_MLP_84.h5 `
+  -v "${PWD}\src:/app/src" `
+  -v "${PWD}\models:/app/models:ro" `
+  -v "${PWD}\data\input:/app/data/input:ro" `
+  -v "${PWD}\data\output:/app/data/output" `
+  neumonia-gui
+```
+
+---
+
+## 6) Desarrollo: ver cambios en `src` dentro del contenedor
+
+### 6.1) Caso normal (sin autoreload)
+
+Si editas un `.py` en `src/`, el contenedor **sí ve el archivo nuevo**, pero Python/Tkinter normalmente requiere reinicio para cargarlo.
+
+Reiniciar el contenedor:
+
+```bash
+docker compose restart neumonia-gui
+```
+
+### 6.2) Autorestart (opcional) con `DEV_WATCHDOG=1`
+
+La app puede reiniciarse automáticamente cuando cambies archivos `.py` si el contenedor está configurado para eso.
+
+En `docker-compose.yml` activa:
+
+```yaml
+environment:
+  - DEV_WATCHDOG=1
+```
+
+> Esto funciona porque `docker/start_gui.sh` usa `watchmedo auto-restart` cuando `DEV_WATCHDOG=1`.
+
+Luego levanta:
+
+```bash
+docker compose up --build
+```
+
+Cuando guardes cambios en `src/`, la GUI se cerrará y abrirá de nuevo sola.
+
+---
+
+## 7) Uso dentro de la GUI (en noVNC)
+
+### Cargar imagen
+
+Desde el file picker, navega a:
+
+* `/app/data/input`  (recomendado para pruebas)
+
+### Guardar PDF/CSV
+
+Selecciona como carpeta:
+
+* `/app/data/output`
+
+Esto se reflejará en tu PC en:
+
+* `data/output/`
+
+---
+
+## 8) Errores comunes
+
+### “No se encontró el modelo .h5…”
+
+Verifica:
+
+* Que exista `models/conv_MLP_84.h5`
+* Que el `docker-compose.yml` esté apuntando bien a `NEUMONIA_MODEL_PATH=/app/models/conv_MLP_84.h5`
+
+### Mensaje CUDA / cuInit error
+
+Si ves errores tipo CUDA, normalmente es TensorFlow intentando usar GPU. No suele ser fatal: continúa en CPU.
+
+---
+
+## 9) Flujo Git recomendado (equipo)
+
+* No trabajar directo en `main`
+* Trabajar en tu rama `dev/<nombre>`
+* Hacer Pull Request hacia `develop`
+
+Comandos:
+
+```bash
+git fetch origin
+git checkout dev/<tu-nombre>
+git pull
+```
+
+Luego:
+
+```bash
+git add .
+git commit -m "mensaje"
+git push
+```
+
+Y abrir PR: `dev/<tu-nombre>` → `develop`
+
+---
+
+## 10) Notas finales
+
+* No subir a Git: `models/`, `data/`, `assets/samples/` (datasets o archivos sensibles/pesados)
+* Todo lo de Docker GUI está gestionado por: `docker/start_gui.sh`
+
+```
+
+---
+
+Si quieres, pégame tu `docker-compose.yml` actual (solo el servicio) y yo lo ajusto para que el README quede **100% alineado** con los nombres reales del servicio (`neumonia-gui` vs `neumonia-gui-1`), ruta del modelo, y flags (`DEV_WATCHDOG`).
+::contentReference[oaicite:0]{index=0}
+```
