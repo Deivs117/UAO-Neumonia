@@ -331,9 +331,15 @@ class App:
         self.img2_tk = None
 
     def _show_original_image(self, pil_img: Image.Image) -> None:
-        pil_img = fit_square(pil_img, 250, fill=0)  
+        pil_img = fit_square(pil_img, 250, fill=0) 
         self.img1_tk = ImageTk.PhotoImage(pil_img)
         self.img_panel1.configure(image=self.img1_tk, text="")
+
+
+
+
+
+
 
     def run_model(self) -> None:
         """Ejecuta predicción y muestra heatmap."""

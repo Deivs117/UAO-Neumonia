@@ -4,7 +4,9 @@ from typing import Tuple
 import numpy as np
 
 from src.neumonia_app.inference.predict import predict as infer_predict
-from src.neumonia_app.grad_cam import generate_grad_cam
+#from src.neumonia_app.grad_cam import generate_grad_cam
+from src.neumonia_app.grad_cam import generate_grad_cam_from_batch
+
 from src.neumonia_app.load_model import get_model
 from src.neumonia_app.preprocess_img import preprocess_image
 
@@ -22,8 +24,9 @@ def predict_from_array(
     label = pred_res.label
     proba = float(pred_res.proba_pct)
 
-    heatmap_rgb = generate_grad_cam(
-        array_bgr,
+    heatmap_rgb = generate_grad_cam_from_batch(
+        batch,
+        array_bgr=array_bgr,
         model=model,
         layer_name=layer_name,
     )
