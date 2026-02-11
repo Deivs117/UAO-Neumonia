@@ -1,4 +1,5 @@
 # main.py
+
 """
 Entry-point de la aplicación.
 
@@ -297,9 +298,8 @@ class App:
             return False
         self.output_dir = folder
         return True
-
+  
     def load_img_file(self) -> None:
-        """Carga una imagen desde disco (DICOM/JPG/PNG) y la muestra."""
         filepath = filedialog.askopenfilename(
             title="Select image",
             filetypes=(
@@ -316,6 +316,12 @@ class App:
         self.filepath = filepath
         self.array_bgr, self.original_pil = load_image(filepath)
 
+        self._reset_prediction_ui()
+        self._show_original_image(self.original_pil)
+
+        self.button_predict["state"] = "enabled"
+
+    def _reset_prediction_ui(self) -> None:
         self.label = None
         self.proba = None
         self.heatmap_rgb = None
@@ -324,11 +330,16 @@ class App:
         self.img_panel2.configure(image="", text="Sin heatmap")
         self.img2_tk = None
 
-        pil_img = fit_square(self.original_pil, 250, fill=0)
+    def _show_original_image(self, pil_img: Image.Image) -> None:
+        pil_img = fit_square(pil_img, 250, fill=0)  # por ahora lo dejamos aquí
         self.img1_tk = ImageTk.PhotoImage(pil_img)
         self.img_panel1.configure(image=self.img1_tk, text="")
 
-        self.button_predict["state"] = "enabled"
+
+
+
+
+
 
     def run_model(self) -> None:
         """Ejecuta predicción y muestra heatmap."""
