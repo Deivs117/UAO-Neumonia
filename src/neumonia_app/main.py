@@ -4,8 +4,8 @@
 Entry-point de la aplicación.
 
 GUI mínima usando los módulos:
-- read_img.py
-- integrator.py
+- read_img.py (POO)
+- integrator.py (POO)
 
 Incluye:
 - Guardado CSV (requiere cédula, y carpeta elegida)
@@ -36,8 +36,9 @@ from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
-from src.neumonia_app.integrator import predict_from_array
-from src.neumonia_app.read_img import load_image
+# ✅ POO imports (actualizados)
+from src.neumonia_app.integrator import Integrator
+from src.neumonia_app.read_img import ReadGlobal
 
 try:
     RESAMPLE = Image.Resampling.LANCZOS
@@ -210,13 +211,17 @@ def generate_pdf_report(
 
 
 class App:
-    """GUI principal (mínima) que consume integrator.py."""
+    """GUI principal (mínima) que consume integrator.py (POO)."""
 
     def __init__(self) -> None:
         self.root = tk.Tk()
         self.root.title("Herramienta para la detección rápida de neumonía")
         self.root.geometry("815x560")
         self.root.resizable(False, False)
+
+        # ✅ servicios POO
+        self.reader = ReadGlobal()
+        self.integrator = Integrator()
 
         self.output_dir: Optional[str] = None
         self.filepath: Optional[str] = None
@@ -298,7 +303,7 @@ class App:
             return False
         self.output_dir = folder
         return True
-  
+
     def load_img_file(self) -> None:
         filepath = filedialog.askopenfilename(
             title="Select image",
@@ -314,7 +319,9 @@ class App:
             return
 
         self.filepath = filepath
-        self.array_bgr, self.original_pil = load_image(filepath)
+
+        # ✅ Reading POO
+        self.array_bgr, self.original_pil = self.reader.read(filepath)
 
         self._reset_prediction_ui()
         self._show_original_image(self.original_pil)
@@ -331,31 +338,26 @@ class App:
         self.img2_tk = None
 
     def _show_original_image(self, pil_img: Image.Image) -> None:
-        pil_img = fit_square(pil_img, 250, fill=0) 
+        pil_img = fit_square(pil_img, 250, fill=0)
         self.img1_tk = ImageTk.PhotoImage(pil_img)
         self.img_panel1.configure(image=self.img1_tk, text="")
 
-
-
-
-
-
-
     def run_model(self) -> None:
         """Ejecuta predicción y muestra heatmap."""
-        if self.array_bgr is None:
+        if not self.filepath:
             showinfo(title="Predecir", message="Primero carga una imagen.")
             return
 
-        self.label, self.proba, self.heatmap_rgb = predict_from_array(self.array_bgr)
+        # ✅ Pipeline completo POO (por path)
+        self.label, self.proba, self.heatmap_rgb = self.integrator.Run(self.filepath)
 
         pil_heat = Image.fromarray(self.heatmap_rgb).convert("RGB")
         pil_heat = fit_square(pil_heat, 250, fill=0)
         self.img2_tk = ImageTk.PhotoImage(pil_heat)
         self.img_panel2.configure(image=self.img2_tk, text="")
 
-        self.pred_var.set(self.label)
-        self.proba_var.set(f"{self.proba:.2f}%")
+        self.pred_var.set(self.label or "")
+        self.proba_var.set(f"{float(self.proba):.2f}%")
 
     def save_results_csv(self) -> None:
         """Guarda historial.csv (requiere cédula y predicción)."""
@@ -372,7 +374,7 @@ class App:
         csv_path = os.path.join(self.output_dir, "historial.csv")
         with open(csv_path, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f, delimiter="-")
-            writer.writerow([cedula, self.label, f"{self.proba:.2f}%"])
+            writer.writerow([cedula, self.label, f"{float(self.proba):.2f}%"])
 
         showinfo(title="Guardar", message=f"Datos guardados con éxito en:\n{csv_path}")
 
@@ -398,7 +400,7 @@ class App:
             pdf_path=pdf_path,
             cedula=cedula,
             label=self.label,
-            proba=self.proba,
+            proba=float(self.proba),
             original_pil=self.original_pil,
             heatmap_rgb=self.heatmap_rgb,
         )
