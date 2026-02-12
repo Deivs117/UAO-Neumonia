@@ -20,7 +20,6 @@ from src.neumonia_app.preprocess_img import preprocess_image
 
 CLASS_NAMES = ["bacteriana", "normal", "viral"]
 
-
 def _first_input_name(model) -> str:
     """Obtiene el nombre del primer input del modelo (sin ':0')."""
     if hasattr(model, "input_names") and model.input_names:

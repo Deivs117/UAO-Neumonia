@@ -15,4 +15,5 @@ __all__ = [
     "preprocess_img",
     "load_model",
     "grad_cam",
+    "main",
 ]
