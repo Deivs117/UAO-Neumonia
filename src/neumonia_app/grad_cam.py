@@ -7,9 +7,6 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
-from src.neumonia_app.model_io.keras_inputs import pack_input
-
-
 @dataclass(frozen=True)
 class PredictionResult:
     label: str
@@ -22,6 +19,7 @@ class PredictionResult:
 class GradCamService:
     """
     Servicio Grad-CAM (POO):
+    - _pack_input(): adaptación de inputs para Keras
     - predict(): obtiene clase y probabilidad
     - grad_cam(): genera heatmap superpuesto
     - run(): pipeline predict + gradcam
@@ -31,11 +29,21 @@ class GradCamService:
     class_names: Tuple[str, ...] = ("bacteriana", "normal", "viral")
     out_size: int = 512
 
+    def _pack_input(self, model: tf.keras.Model, batch: np.ndarray):
+        """
+        Adapta el formato esperado del modelo para prevención de warnings desde keras.
+        """
+        if hasattr(model, "input_names") and model.input_names:
+            name = model.input_names[0].split(":")[0]
+        else:
+            name = model.inputs[0].name.split(":")[0]
+        return {name: batch}
+
     def predict(self, model: tf.keras.Model, batch: np.ndarray) -> PredictionResult:
         """
         Ejecuta la predicción del modelo.
         """
-        preds = model.predict(pack_input(model, batch), verbose=0)
+        preds = model.predict(self._pack_input(model, batch), verbose=0)
 
         if isinstance(preds, (list, tuple)):
             preds = preds[0]
@@ -77,7 +85,7 @@ class GradCamService:
         )
 
         with tf.GradientTape() as tape:
-            conv_out, preds = grad_model(pack_input(model, batch), training=False)
+            conv_out, preds = grad_model(self._pack_input(model, batch), training=False)
             loss = preds[:, class_index]
 
         grads = tape.gradient(loss, conv_out)
