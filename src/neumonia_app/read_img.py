@@ -72,4 +72,3 @@ class ReadGlobal:
         de instanciar explícitamente la clase.
         """
         return ReadGlobal().read(path)
-

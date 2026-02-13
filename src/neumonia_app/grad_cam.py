@@ -33,7 +33,7 @@ class GradCamService:
 
     def predict(self, model: tf.keras.Model, batch: np.ndarray) -> PredictionResult:
         """
-        Ejecuta la predicción del modelo (parte 'Predict' del diagrama).
+        Ejecuta la predicción del modelo.
         """
         preds = model.predict(pack_input(model, batch), verbose=0)
 
