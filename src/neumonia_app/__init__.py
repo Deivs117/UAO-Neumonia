@@ -1,19 +1,26 @@
 """
-Paquete neumonia_app.
+Paquete neumonia_app (versión POO).
 
-Contiene los módulos base para:
-- lectura de imágenes (DICOM/JPG)
-- preprocesamiento
-- carga del modelo
-- Grad-CAM
-- integración para la GUI
+Expone las clases principales del pipeline:
+- ReadGlobal: lectura de imágenes
+- Preprocessor: preprocesamiento
+- ModelLoader: carga del modelo
+- GradCamService: predicción + Grad-CAM
+- Integrator: orquestador completo del flujo
 """
 
+from .read_img import ReadGlobal, ReadDICOM, ReadJPGJPEGPNG
+from .preprocess_img import Preprocessor
+from .load_model import ModelLoader
+from .grad_cam import GradCamService
+from .integrator import Integrator
+
 __all__ = [
-    "integrator",
-    "read_img",
-    "preprocess_img",
-    "load_model",
-    "grad_cam",
-    "main",
+    "ReadGlobal",
+    "ReadDICOM",
+    "ReadJPGJPEGPNG",
+    "Preprocessor",
+    "ModelLoader",
+    "GradCamService",
+    "Integrator",
 ]

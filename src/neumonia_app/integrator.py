@@ -1,74 +1,52 @@
-# integrator.py
-"""
-Módulo integrador: expone una API mínima para la GUI.
-
-Retorna únicamente:
-- label (bacteriana | normal | viral)
-- probabilidad (float en %)
-- heatmap (np.ndarray RGB) generado con Grad-CAM
-"""
-
 from __future__ import annotations
 
-from typing import Tuple
+from dataclasses import dataclass
+from typing import Optional, Tuple
 
 import numpy as np
+import tensorflow as tf
 
-from src.neumonia_app.grad_cam import generate_grad_cam
-from src.neumonia_app.load_model import get_model
-from src.neumonia_app.preprocess_img import preprocess_image
-
-CLASS_NAMES = ["bacteriana", "normal", "viral"]
-
-def _first_input_name(model) -> str:
-    """Obtiene el nombre del primer input del modelo (sin ':0')."""
-    if hasattr(model, "input_names") and model.input_names:
-        return str(model.input_names[0])
-    name = getattr(model.inputs[0], "name", "input_1")
-    return str(name).split(":")[0]
+from src.neumonia_app.read_img import ReadGlobal
+from src.neumonia_app.preprocess_img import Preprocessor
+from src.neumonia_app.load_model import ModelLoader
+from src.neumonia_app.grad_cam import GradCamService
 
 
-def _pack_input(model, batch: np.ndarray) -> dict:
-    """Empaqueta el batch en dict para respetar la estructura esperada por Keras."""
-    return {_first_input_name(model): batch}
+@dataclass
+class Integrator:
+    reader: Optional[ReadGlobal] = None
+    model_loader: Optional[ModelLoader] = None
+    gradcam: Optional[GradCamService] = None
+    preprocessor: Optional[Preprocessor] = None
 
+    def __post_init__(self):
+        if self.reader is None:
+            self.reader = ReadGlobal()
 
-def predict_from_array(
-    array_bgr: np.ndarray,
-    *,
-    model_path: str | None = None,
-    layer_name: str = "conv10_thisone",
-) -> Tuple[str, float, np.ndarray]:
-    """
-    Ejecuta predicción + Grad-CAM sobre una imagen ya cargada (BGR).
+        if self.model_loader is None:
+            self.model_loader = ModelLoader()
 
-    Args:
-        array_bgr: imagen (H,W,3) en BGR.
-        model_path: ruta al .h5 (opcional).
-        layer_name: capa conv objetivo para Grad-CAM.
+        if self.gradcam is None:
+            self.gradcam = GradCamService()
 
-    Returns:
-        (label, proba_pct, heatmap_rgb)
-    """
-    model = get_model(model_path=model_path)
-    batch = preprocess_image(array_bgr)
+        if self.preprocessor is None:
+            self.preprocessor = Preprocessor()
 
-    preds = model.predict(_pack_input(model, batch), verbose=0)
-    if isinstance(preds, (list, tuple)):
-        preds = preds[0]
+    def ReceiveAndPreprocessImage(self, image_path: str) -> Tuple[np.ndarray, np.ndarray]:
+        array_bgr, _img_pil = self.reader.read(image_path)
+        batch = self.preprocessor.preprocess(array_bgr)
+        return batch, array_bgr
 
-    preds = np.asarray(preds)
-    pred_idx = int(np.argmax(preds, axis=-1)[0])
-    proba = float(preds[0, pred_idx]) * 100.0
+    def LoadModel(self) -> tf.keras.Model:
+        return self.model_loader.load()
 
-    if 0 <= pred_idx < len(CLASS_NAMES):
-        label = CLASS_NAMES[pred_idx]
-    else:
-        label = str(pred_idx)
+    def Run(self, image_path: str) -> Tuple[str, float, np.ndarray]:
+        batch, array_bgr = self.ReceiveAndPreprocessImage(image_path)
+        model = self.LoadModel()
 
-    heatmap_rgb = generate_grad_cam(
-        array_bgr,
-        model=model,
-        layer_name=layer_name,
-    )
-    return label, proba, heatmap_rgb
+        label, proba_pct, heatmap_rgb = self.gradcam.run(
+            model=model,
+            batch=batch,
+            array_bgr=array_bgr,
+        )
+        return label, proba_pct, heatmap_rgb
