@@ -7,6 +7,8 @@ services:
       - "5900:5900"
     environment:
       - CUDA_VISIBLE_DEVICES=-1
+      - TF_CPP_MIN_LOG_LEVEL=3
+      - TF_ENABLE_ONEDNN_OPTS=0
       - DEV_WATCHDOG=1
       - PYTHONPATH=/app/src
       - NEUMONIA_MODEL_PATH=/app/models/conv_MLP_84.h5

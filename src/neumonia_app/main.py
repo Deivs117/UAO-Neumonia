@@ -16,8 +16,6 @@ from .gui.state import Patient, AppState, safe_float, safe_int
 from .gui.data_client_services import ReportService
 from .integrator import Integrator
 
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
-os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
