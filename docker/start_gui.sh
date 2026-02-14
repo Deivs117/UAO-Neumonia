@@ -2,7 +2,7 @@
 set -e
 
 # Display virtual para Tkinter
-Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset &
+Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
 sleep 0.5
 
 # Window manager liviano

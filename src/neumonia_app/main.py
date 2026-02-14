@@ -1,8 +1,16 @@
 from __future__ import annotations
+"""
+main.py
+
+GUI principal (Tkinter) de UAO-Neumonia.
+Responsabilidad: interacción con el usuario (UI), delegando:
+- Pipeline ML/Grad-CAM al Integrator
+- Salidas CSV/PDF al ReportService
+"""
 
 import os
 import warnings
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import tkinter as tk
 from tkinter import filedialog, ttk
@@ -21,7 +29,20 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 class App(tk.Tk):
+    """
+    Aplicación GUI (Tkinter) para UAO-Neumonia.
+
+    Responsabilidad:
+    - Gestionar la interfaz y el flujo de pantallas (registro → predicción).
+    - Renderizar la imagen original y el heatmap Grad-CAM de forma responsive.
+    - Delegar el pipeline de ML/Grad-CAM al `Integrator`.
+    - Delegar la generación de documentos (CSV/PDF) al `ReportService`.
+
+    Nota:
+    El archivo mantiene lógica de UI únicamente; no implementa inferencia ni reportes.
+    """
     def __init__(self) -> None:
+        """Inicializa la ventana, dependencias (Integrator/ReportService), estado y UI."""
         super().__init__()
 
         apply_clinical_theme(self)
@@ -48,7 +69,9 @@ class App(tk.Tk):
         # vars (escena 2)
         self.pred_var = tk.StringVar(value="")
         self.proba_var = tk.StringVar(value="")
-        self.status_var = tk.StringVar(value="Listo. Registre los datos del paciente y adjunte una radiografía.")
+        self.status_var = tk.StringVar(
+            value="Listo. Registre los datos del paciente y adjunte una radiografía."
+        )
 
         # imágenes tk
         self.tk_img_reg: Optional[ImageTk.PhotoImage] = None
@@ -75,6 +98,7 @@ class App(tk.Tk):
     # ===== Scenes =====
 
     def _build_scene_registration(self) -> None:
+        """Construye la escena 1: registro del paciente y carga de radiografía."""
         s = self.scene_reg
 
         s.grid_rowconfigure(0, weight=1)
@@ -134,6 +158,7 @@ class App(tk.Tk):
         self.entry_name.focus_set()
 
     def _build_scene_prediction(self) -> None:
+        """Construye la escena 2: resultado, Grad-CAM, y acciones de guardado."""
         s = self.scene_pred
 
         s.grid_rowconfigure(0, weight=1)
@@ -178,6 +203,7 @@ class App(tk.Tk):
     # ===== Layout base =====
 
     def _build(self) -> None:
+        """Construye layout base: header, body (scenes) y footer (acciones)."""
         root = ttk.Frame(self, padding=16)
         root.grid(row=0, column=0, sticky="nsew")
         self.grid_rowconfigure(0, weight=1)
@@ -252,6 +278,7 @@ class App(tk.Tk):
     # ===== Navigation =====
 
     def go_registration(self) -> None:
+        """Navega a la escena de registro (escena 1)."""
         self.scene_reg.tkraise()
         self.btn_back.state(["disabled"])
 
@@ -266,6 +293,7 @@ class App(tk.Tk):
         self.after_idle(self._render_all_panels)
 
     def go_prediction(self) -> None:
+        """Navega a la escena de predicción (escena 2) si los datos son válidos."""
         if not self._can_go_next():
             showinfo(title="Siguiente", message="Complete los datos requeridos y cargue una radiografía.")
             return
@@ -283,6 +311,7 @@ class App(tk.Tk):
     # ===== Helpers =====
 
     def _patient_dict(self) -> Dict[str, Any]:
+        """Construye y retorna un diccionario con la información del paciente desde la UI."""
         self.patient = Patient(
             name=self.p_name.get(),
             doc_type=self.p_doc_type.get(),
@@ -295,11 +324,13 @@ class App(tk.Tk):
         return self.patient.as_dict()
 
     def _update_patient_summary(self) -> None:
+        """Actualiza el resumen de paciente mostrado en la escena de predicción."""
         p = self._patient_dict()
         summary = f"{p['name']} · {p['doc_type']} {p['doc_num']} · {p['sex']} · Edad: {p['age']} · Altura: {p['height']} · Peso: {p['weight']}"
         self.lbl_patient_summary.configure(text=summary.strip(" ·"))
 
     def _can_go_next(self) -> bool:
+        """Valida si se puede avanzar: datos mínimos del paciente e imagen cargada."""
         p = self._patient_dict()
         if not p["name"]:
             return False
@@ -316,12 +347,14 @@ class App(tk.Tk):
         return True
 
     def _update_wizard_buttons(self) -> None:
+        """Habilita o deshabilita botones del wizard según el estado actual."""
         if self.scene_reg.winfo_ismapped():
             self.btn_next.state(["!disabled"] if self._can_go_next() else ["disabled"])
 
     # ===== Responsive render =====
 
     def _render_panel_reg(self, w: int, h: int) -> None:
+        """Renderiza la imagen cargada en el panel de la escena de registro."""
         if self.state.original_pil is None:
             return
         pil = fit_box(self.state.original_pil, w, h, fill=0)
@@ -329,6 +362,7 @@ class App(tk.Tk):
         self.panel_reg.configure(image=self.tk_img_reg, text="")
 
     def _render_panel_orig(self, w: int, h: int) -> None:
+        """Renderiza la imagen original en el panel de la escena de predicción."""
         if self.state.original_pil is None:
             return
         pil = fit_box(self.state.original_pil, w, h, fill=0)
@@ -336,6 +370,7 @@ class App(tk.Tk):
         self.panel_orig.configure(image=self.tk_img_orig, text="")
 
     def _render_panel_hm(self, w: int, h: int) -> None:
+        """Renderiza el heatmap Grad-CAM en el panel de la escena de predicción."""
         if self.state.heatmap_rgb is None:
             return
         pil_heat = Image.fromarray(self.state.heatmap_rgb).convert("RGB")
@@ -344,6 +379,7 @@ class App(tk.Tk):
         self.panel_hm.configure(image=self.tk_img_hm, text="")
 
     def _on_reg_resize(self, event: tk.Event) -> None:
+        """Debounce del render en resize del panel de registro."""
         if self._job_reg is not None:
             try:
                 self.after_cancel(self._job_reg)
@@ -352,6 +388,7 @@ class App(tk.Tk):
         self._job_reg = self.after(90, lambda: self._safe_render_reg(event.width, event.height))
 
     def _on_orig_resize(self, event: tk.Event) -> None:
+        """Debounce del render en resize del panel de imagen original."""
         if self._job_orig is not None:
             try:
                 self.after_cancel(self._job_orig)
@@ -360,6 +397,7 @@ class App(tk.Tk):
         self._job_orig = self.after(90, lambda: self._safe_render_orig(event.width, event.height))
 
     def _on_hm_resize(self, event: tk.Event) -> None:
+        """Debounce del render en resize del panel de heatmap."""
         if self._job_hm is not None:
             try:
                 self.after_cancel(self._job_hm)
@@ -368,21 +406,25 @@ class App(tk.Tk):
         self._job_hm = self.after(90, lambda: self._safe_render_hm(event.width, event.height))
 
     def _safe_render_reg(self, w: int, h: int) -> None:
+        """Render seguro (con dimensiones mínimas) del panel de registro."""
         self._job_reg = None
         if w > 40 and h > 40:
             self._render_panel_reg(w, h)
 
     def _safe_render_orig(self, w: int, h: int) -> None:
+        """Render seguro (con dimensiones mínimas) del panel de imagen original."""
         self._job_orig = None
         if w > 40 and h > 40:
             self._render_panel_orig(w, h)
 
     def _safe_render_hm(self, w: int, h: int) -> None:
+        """Render seguro (con dimensiones mínimas) del panel de heatmap."""
         self._job_hm = None
         if w > 40 and h > 40:
             self._render_panel_hm(w, h)
 
     def _render_all_panels(self) -> None:
+        """Re-renderiza todos los paneles visibles (registro/original/heatmap)."""
         if hasattr(self, "panel_reg") and self.panel_reg.winfo_width() > 40 and self.panel_reg.winfo_height() > 40:
             self._render_panel_reg(self.panel_reg.winfo_width(), self.panel_reg.winfo_height())
 
@@ -395,6 +437,7 @@ class App(tk.Tk):
     # ===== Actions =====
 
     def choose_output_dir(self) -> None:
+        """Permite seleccionar manualmente la carpeta de salida para PDF/CSV."""
         folder = filedialog.askdirectory(title="Seleccione carpeta para guardar PDFs y CSV")
         if not folder:
             return
@@ -403,6 +446,7 @@ class App(tk.Tk):
         showinfo(title="Carpeta de salida", message=f"Carpeta seleccionada:\n{self.state.output_dir}")
 
     def load_img_file(self) -> None:
+        """Abre diálogo para seleccionar una imagen, la carga y actualiza el estado."""
         filepath = filedialog.askopenfilename(
             title="Seleccionar imagen",
             filetypes=(
@@ -432,6 +476,7 @@ class App(tk.Tk):
         self._update_wizard_buttons()
 
     def run_model(self) -> None:
+        """Ejecuta la predicción y Grad-CAM vía Integrator y actualiza la UI."""
         if not self.state.filepath:
             showinfo(title="Predecir", message="Primero cargue una imagen.")
             return
@@ -462,6 +507,7 @@ class App(tk.Tk):
         self.btn_predict.state(["!disabled"])
 
     def save_results_csv(self) -> None:
+        """Guarda el registro actual en el CSV histórico (delegado a ReportService)."""
         p = self._patient_dict()
 
         if not p["doc_num"] or not p["name"]:
@@ -493,6 +539,7 @@ class App(tk.Tk):
         showinfo(title="Guardar", message=f"Datos guardados con éxito en:\n{csv_path}")
 
     def create_pdf(self) -> None:
+        """Genera un reporte PDF clínico (delegado a ReportService)."""
         p = self._patient_dict()
 
         if not p["doc_num"] or not p["name"]:
@@ -529,6 +576,7 @@ class App(tk.Tk):
         showinfo(title="PDF", message=f"Reporte generado con éxito:\n{pdf_path}")
 
     def delete(self) -> None:
+        """Borra datos, imagen y resultados del estado/GUI (con confirmación)."""
         answer = askokcancel(title="Confirmación", message="Se borrarán todos los datos.", icon=WARNING)
         if not answer:
             return
