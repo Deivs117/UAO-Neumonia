@@ -1,4 +1,10 @@
 from __future__ import annotations
+"""
+integrator.py
+
+Orquestador oficial del sistema: coordina lectura, preprocesamiento,
+carga del modelo (cacheada) e inferencia + Grad-CAM.
+"""
 
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -15,6 +21,14 @@ from src.neumonia_app.grad_cam import GradCamService
 
 @dataclass
 class Integrator:
+    """
+    Integrador/orquestador de módulos.
+
+    - ReadGlobal: carga de imagen
+    - Preprocessor: batch para modelo
+    - ModelLoader: carga de modelo
+    - GradCamService: inferencia + heatmap
+    """
     reader: Optional[ReadGlobal] = None
     model_loader: Optional[ModelLoader] = None
     gradcam: Optional[GradCamService] = None
@@ -22,6 +36,7 @@ class Integrator:
     _model: Optional[tf.keras.Model] = None
 
     def __post_init__(self):
+        """Inicializa dependencias por defecto si no fueron inyectadas."""
         if self.reader is None:
             self.reader = ReadGlobal()
 
@@ -42,11 +57,17 @@ class Integrator:
         return self.reader.read(image_path)
 
     def ReceiveAndPreprocessImage(self, image_path: str) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Carga imagen desde ruta y retorna:
+        - batch preprocesado (listo para el modelo)
+        - array BGR original (para visualización/Grad-CAM)
+        """
         array_bgr, _ = self.LoadImage(image_path)
         batch = self.preprocessor.preprocess(array_bgr)
         return batch, array_bgr
 
     def LoadModel(self) -> tf.keras.Model:
+        """Retorna el modelo (con cache en memoria vía self._model)."""
         if self._model is None:
             self._model = self.model_loader.load()
         return self._model

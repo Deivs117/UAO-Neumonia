@@ -1,4 +1,11 @@
 from __future__ import annotations
+"""
+read_img.py
+
+Lectura de imágenes desde disco (DICOM y formatos estándar) y retorno en:
+- array BGR (np.ndarray) para pipeline/Grad-CAM
+- imagen PIL para visualización UI
+"""
 
 import os
 from typing import Tuple
@@ -13,6 +20,7 @@ class ReadDICOM:
     """Lee archivos .dcm y retorna (array_bgr, img_pil)."""
 
     def read(self, path: str) -> Tuple[np.ndarray, Image.Image]:
+        """Lee un DICOM desde `path` y retorna (array_bgr, img_pil)."""
         ds = pydicom.dcmread(path)
         img_array = ds.pixel_array
 
@@ -34,6 +42,7 @@ class ReadJPGJPEGPNG:
     """Lee .jpg/.jpeg/.png y retorna (array_bgr, img_pil)."""
 
     def read(self, path: str) -> Tuple[np.ndarray, Image.Image]:
+        """Lee una imagen estándar desde `path` y retorna (array_bgr, img_pil)."""
         array_bgr = cv2.imread(path)
         if array_bgr is None:
             raise ValueError(f"No se pudo leer la imagen: {path}")
@@ -48,10 +57,12 @@ class ReadGlobal:
     """Selector de reader según extensión."""
 
     def __init__(self):
+        """Inicializa readers internos para DICOM y formatos estándar."""
         self._dicom = ReadDICOM()
         self._std = ReadJPGJPEGPNG()
 
     def read(self, path: str) -> Tuple[np.ndarray, Image.Image]:
+        """Despacha a un reader según la extensión del archivo."""
         ext = os.path.splitext(path)[1].lower()
 
         if ext == ".dcm":

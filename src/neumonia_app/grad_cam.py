@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""
+grad_cam.py
+
+Servicio de inferencia y explicación visual (Grad-CAM) para modelos Keras.
+Responsabilidad: predecir clase/probabilidad y generar un heatmap superpuesto.
+"""
+
 from dataclasses import dataclass
 from typing import Any, Tuple
 
@@ -9,6 +16,7 @@ import tensorflow as tf
 
 @dataclass(frozen=True)
 class PredictionResult:
+    """Resultado de predicción del modelo (DTO inmutable)."""
     label: str
     proba_pct: float
     class_index: int
@@ -156,4 +164,3 @@ class GradCamService:
             class_index=pred.class_index,
         )
         return pred.label, pred.proba_pct, heatmap_rgb
-

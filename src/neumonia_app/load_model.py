@@ -1,4 +1,11 @@
 from __future__ import annotations
+"""
+load_model.py
+
+Resolver y cargar el modelo Keras desde:
+1) model_path explícito
+2) búsqueda de archivos .h5 en rutas típicas (Docker/local)
+"""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,11 +35,13 @@ class ModelLoader:
         for p in here.parents:
             if any((p / m).exists() for m in markers):
                 return p
-        # fallback: 3 niveles arriba
         return here.parents[3]
 
     def _resolve_path(self) -> Path:
-        # 1) Si se especifica directamente
+        """
+        Resuelve la ruta del archivo de modelo.
+        Retorna un Path existente apuntando a un .h5.
+        """
         if self.model_path:
             p = Path(self.model_path).expanduser().resolve()
             if not p.exists():
@@ -42,12 +51,10 @@ class ModelLoader:
         base = Path(__file__).resolve().parent
         repo = self._repo_root()
 
-        # Docker estándar
         docker_models_dir = Path("/app/models")
 
         # 2) Directorios típicos a buscar (Docker + local)
         search_dirs = (
-            # Docker (tu caso funcionando)
             docker_models_dir,
             Path("/app"),
             Path("/app/models"),
@@ -56,14 +63,12 @@ class ModelLoader:
             Path("/app/src"),
             Path("/app/src/models"),
 
-            # Local repo (Windows/Linux/Mac)
-            repo / "models",                 # ✅ recomendado: <repo>/models/conv_MLP_84.h5
+            repo / "models",                 
             repo / "weights",
             repo / "src" / "models",
             repo / "src" / "neumonia_app" / "models",
             repo / "src" / "neumonia_app" / "weights",
 
-            # Cerca del módulo (por si guardan el modelo dentro del paquete)
             base / "models",
             base / "weights",
             base.parent / "models",

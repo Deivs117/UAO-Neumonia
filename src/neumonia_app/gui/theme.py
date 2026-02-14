@@ -1,4 +1,10 @@
 from __future__ import annotations
+"""
+theme.py
+
+Definición de tema visual (estilo clínico) para Tkinter/ttk.
+Incluye constantes de color/fuentes y helpers para construir "cards".
+"""
 
 import tkinter as tk
 from tkinter import ttk
@@ -18,6 +24,7 @@ FONT_SMALL = ("Segoe UI", 9)
 
 
 def apply_clinical_theme(root: tk.Tk) -> ttk.Style:
+    """Aplica un tema clínico (colores, fuentes y estilos ttk) sobre `root`."""
     root.configure(bg=BG_APP)
 
     style = ttk.Style(root)

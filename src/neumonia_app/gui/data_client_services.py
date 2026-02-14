@@ -1,8 +1,16 @@
 from __future__ import annotations
+"""
+data_client_services.py
 
-from datetime import datetime
+Servicios de salida para el usuario (cliente):
+- Gestión de carpeta de salida
+- Guardado de CSV histórico
+- Generación de PDF clínico con Grad-CAM
+"""
+
 import csv
 import os
+from datetime import datetime
 from typing import Dict, Any, Callable, Optional
 
 import numpy as np
@@ -15,6 +23,8 @@ from reportlab.pdfgen import canvas
 from .image_utils import pretty_label
 
 class ReportService:
+    """Servicio responsable de generar documentos de salida (CSV/PDF)."""
+
     CSV_FILENAME = "historial.csv"
 
     def ensure_output_dir(
@@ -24,6 +34,13 @@ class ReportService:
         ask_directory: Callable[[], str],
         on_cancel: Callable[..., None],
     ) -> Optional[str]:
+        """
+        Garantiza una carpeta de salida válida.
+
+        - Si `current_dir` es válida, la retorna.
+        - Si no, solicita carpeta con `ask_directory`.
+        - Si el usuario cancela, usa `on_cancel` y retorna None.
+        """
         if current_dir and os.path.isdir(current_dir):
             return current_dir
 
@@ -36,10 +53,12 @@ class ReportService:
         return folder
 
     def _safe_doc_token(self, doc_num: str) -> str:
+        """Normaliza el documento del paciente para usarlo en nombres de archivo."""
         token = "".join(ch for ch in (doc_num or "") if ch.isalnum() or ch in ("-", "_"))
         return token or "sin_documento"
 
     def _ensure_dir(self, output_dir: str) -> None:
+        """Crea la carpeta de salida si no existe; valida que no sea vacía."""
         if not output_dir:
             raise ValueError("output_dir vacío.")
         os.makedirs(output_dir, exist_ok=True)
@@ -135,6 +154,7 @@ class ReportService:
         return pdf_path
 
     def _default_report_text(self, label: str) -> str:
+        """Retorna texto clínico base del reporte según la clase predicha."""
         l = (label or "").strip().lower()
 
         if l == "normal":
@@ -175,6 +195,15 @@ class ReportService:
         heatmap_rgb: np.ndarray,
         source_filename: str = "",
     ) -> None:
+        """
+        Genera un PDF clínico con:
+        - encabezado
+        - datos del paciente
+        - imagen original y heatmap Grad-CAM
+        - observación automática
+
+        Escribe el archivo en `pdf_path`.
+        """
         c = canvas.Canvas(pdf_path, pagesize=A4)
         page_w, page_h = A4
         margin = 2.0 * cm

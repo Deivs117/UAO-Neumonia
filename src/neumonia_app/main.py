@@ -444,6 +444,8 @@ class App(tk.Tk):
 
         if self.state.array_bgr is None:
             showinfo(title="Predecir", message="No se encontró la imagen cargada en memoria.")
+            self.status_var.set("No se pudo predecir: imagen no disponible en memoria.")
+            self.btn_predict.state(["!disabled"])
             return
         label, proba, heatmap_rgb = self.integrator.Run(self.state.array_bgr)
 

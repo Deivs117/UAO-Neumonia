@@ -1,4 +1,12 @@
 from __future__ import annotations
+"""
+state.py
+
+Modelos de estado (POO) para la aplicación:
+- Patient: datos del paciente
+- AppState: estado global de UI (imagen, resultados, rutas)
+Incluye validadores safe_float y safe_int.
+"""
 
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
@@ -8,6 +16,7 @@ from PIL import Image
 
 
 def safe_float(s: str) -> Optional[float]:
+    """Convierte string a float seguro (acepta coma como separador decimal)."""
     s = (s or "").strip().replace(",", ".")
     if not s:
         return None
@@ -18,6 +27,7 @@ def safe_float(s: str) -> Optional[float]:
 
 
 def safe_int(s: str) -> Optional[int]:
+    """Convierte string a int seguro."""
     s = (s or "").strip()
     if not s:
         return None
@@ -29,6 +39,7 @@ def safe_int(s: str) -> Optional[int]:
 
 @dataclass
 class Patient:
+    """Entidad de paciente para el formulario y reportes."""
     name: str = ""
     doc_type: str = "CC"
     doc_num: str = ""
@@ -38,6 +49,7 @@ class Patient:
     weight: str = ""
 
     def as_dict(self) -> Dict[str, Any]:
+        """Retorna los datos del paciente como dict con strings normalizados."""
         return {
             "name": self.name.strip(),
             "doc_type": self.doc_type.strip(),
@@ -51,6 +63,7 @@ class Patient:
 
 @dataclass
 class AppState:
+    """Estado de la aplicación: rutas, imagen cargada y resultados de inferencia."""
     output_dir: Optional[str] = None
     filepath: Optional[str] = None
 
@@ -62,6 +75,7 @@ class AppState:
     heatmap_rgb: Optional[np.ndarray] = None
 
     def clear_prediction(self) -> None:
+        """Limpia el resultado de predicción manteniendo la imagen cargada."""
         self.label = None
         self.proba = None
         self.heatmap_rgb = None
