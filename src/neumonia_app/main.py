@@ -16,7 +16,7 @@ from PIL import Image, ImageTk
 from .gui.theme import apply_clinical_theme, PANEL_BG, card
 from .gui.image_utils import fit_box, pretty_label
 from .gui.state import Patient, AppState, safe_float, safe_int
-from .gui.services import ReportService
+from .gui.data_client_services import ReportService
 from .integrator import Integrator
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
