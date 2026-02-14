@@ -1,4 +1,3 @@
-```markdown
 # UAO-Neumonia — GUI (Tkinter) + Grad-CAM + Reportes (CSV/PDF) + Tests + Docker (noVNC)
 
 Aplicación con interfaz gráfica (Tkinter) para apoyar la **clasificación de neumonía** (p. ej. *Normal / Bacteriana / Viral*) a partir de imágenes **DICOM** y formatos estándar (**JPG/PNG**).  
