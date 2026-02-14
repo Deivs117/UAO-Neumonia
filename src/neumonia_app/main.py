@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import os
 import warnings
-import csv
-from datetime import datetime
 from typing import Optional, Dict, Any
 
 import tkinter as tk
 from tkinter import filedialog, ttk
 from tkinter.messagebox import WARNING, askokcancel, showinfo
 
-import numpy as np
 from PIL import Image, ImageTk
 
 from .gui.theme import apply_clinical_theme, PANEL_BG, card
@@ -486,42 +483,13 @@ class App(tk.Tk):
         if not self.ensure_output_dir():
             return
 
-        csv_path = os.path.join(self.state.output_dir, "historial.csv")
-        new_file = not os.path.exists(csv_path)
-
-        with open(csv_path, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f, delimiter=",")
-            if new_file:
-                writer.writerow(
-                    [
-                        "timestamp",
-                        "nombre",
-                        "tipo_doc",
-                        "num_doc",
-                        "sexo",
-                        "edad",
-                        "altura_cm",
-                        "peso_kg",
-                        "clase",
-                        "probabilidad_pct",
-                        "archivo_imagen",
-                    ]
-                )
-            writer.writerow(
-                [
-                    datetime.now().isoformat(timespec="seconds"),
-                    p["name"],
-                    p["doc_type"],
-                    p["doc_num"],
-                    p["sex"],
-                    p["age"],
-                    p["height"],
-                    p["weight"],
-                    pretty_label(self.state.label),
-                    f"{float(self.state.proba):.2f}",
-                    os.path.basename(self.state.filepath or ""),
-                ]
-            )
+        csv_path = self.reports.save_csv_history(
+            output_dir=self.state.output_dir,
+            patient=p,
+            label=self.state.label,
+            proba=float(self.state.proba),
+            source_filename=os.path.basename(self.state.filepath or ""),
+        )
 
         self.status_var.set(f"CSV guardado: {csv_path}")
         showinfo(title="Guardar", message=f"Datos guardados con éxito en:\n{csv_path}")
@@ -541,12 +509,8 @@ class App(tk.Tk):
         if not self.ensure_output_dir():
             return
 
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_doc = "".join(ch for ch in p["doc_num"] if ch.isalnum() or ch in ("-", "_"))
-        pdf_path = os.path.join(self.state.output_dir, f"reporte_{safe_doc}_{ts}.pdf")
-
-        self.reports.generate_pdf_report(
-            pdf_path=pdf_path,
+        pdf_path = self.reports.save_pdf_report(
+            output_dir=self.state.output_dir,
             patient=p,
             label=self.state.label,
             proba=float(self.state.proba),

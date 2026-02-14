@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Any, Tuple
+import csv
+import os
+from typing import Dict, Any
 
 import numpy as np
 from PIL import Image
@@ -11,12 +12,110 @@ from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
-from src.neumonia_app.integrator import Integrator
-from src.neumonia_app.read_img import ReadGlobal
-
 from .image_utils import pretty_label
 
 class ReportService:
+    CSV_FILENAME = "historial.csv"
+
+    def _safe_doc_token(self, doc_num: str) -> str:
+        token = "".join(ch for ch in (doc_num or "") if ch.isalnum() or ch in ("-", "_"))
+        return token or "sin_documento"
+
+    def _ensure_dir(self, output_dir: str) -> None:
+        if not output_dir:
+            raise ValueError("output_dir vacío.")
+        os.makedirs(output_dir, exist_ok=True)
+
+    def save_csv_history(
+        self,
+        *,
+        output_dir: str,
+        patient: Dict[str, Any],
+        label: str,
+        proba: float,
+        source_filename: str = "",
+    ) -> str:
+        """
+        Agrega una fila al CSV histórico (crea el archivo si no existe).
+        Retorna la ruta del CSV.
+        """
+        self._ensure_dir(output_dir)
+
+        csv_path = os.path.join(output_dir, self.CSV_FILENAME)
+        new_file = not os.path.exists(csv_path)
+
+        with open(csv_path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f, delimiter=",")
+            if new_file:
+                writer.writerow(
+                    [
+                        "timestamp",
+                        "nombre",
+                        "tipo_doc",
+                        "num_doc",
+                        "sexo",
+                        "edad",
+                        "altura_cm",
+                        "peso_kg",
+                        "clase",
+                        "probabilidad_pct",
+                        "archivo_imagen",
+                    ]
+                )
+
+            writer.writerow(
+                [
+                    datetime.now().isoformat(timespec="seconds"),
+                    patient.get("name", ""),
+                    patient.get("doc_type", ""),
+                    patient.get("doc_num", ""),
+                    patient.get("sex", ""),
+                    patient.get("age", ""),
+                    patient.get("height", ""),
+                    patient.get("weight", ""),
+                    pretty_label(label),
+                    f"{float(proba):.2f}",
+                    source_filename or "",
+                ]
+            )
+
+        return csv_path
+
+    def build_pdf_path(self, *, output_dir: str, doc_num: str) -> str:
+        """
+        Construye un nombre consistente para el PDF en output_dir.
+        """
+        self._ensure_dir(output_dir)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_doc = self._safe_doc_token(doc_num)
+        return os.path.join(output_dir, f"reporte_{safe_doc}_{ts}.pdf")
+
+    def save_pdf_report(
+        self,
+        *,
+        output_dir: str,
+        patient: Dict[str, Any],
+        label: str,
+        proba: float,
+        original_pil: Image.Image,
+        heatmap_rgb: np.ndarray,
+        source_filename: str = "",
+    ) -> str:
+        """
+        Genera el PDF y retorna la ruta del archivo.
+        """
+        pdf_path = self.build_pdf_path(output_dir=output_dir, doc_num=str(patient.get("doc_num", "")))
+        self.generate_pdf_report(
+            pdf_path=pdf_path,
+            patient=patient,
+            label=label,
+            proba=float(proba),
+            original_pil=original_pil,
+            heatmap_rgb=heatmap_rgb,
+            source_filename=source_filename,
+        )
+        return pdf_path
+
     def _default_report_text(self, label: str) -> str:
         l = (label or "").strip().lower()
 
