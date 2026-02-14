@@ -1,149 +1,193 @@
-# UAO-Neumonia — App GUI (Tkinter) + Docker (noVNC)
+```markdown
+# UAO-Neumonia — GUI (Tkinter) + Grad-CAM + Reportes (CSV/PDF) + Tests + Docker (noVNC)
 
-Este repositorio contiene una aplicación con interfaz gráfica (Tkinter) para apoyar la clasificación de neumonía (normal / bacteriana / viral) a partir de imágenes (DICOM / JPG), y genera reportes en PDF + registros CSV.
+Aplicación con interfaz gráfica (Tkinter) para apoyar la **clasificación de neumonía** (p. ej. *Normal / Bacteriana / Viral*) a partir de imágenes **DICOM** y formatos estándar (**JPG/PNG**).  
+Incluye explicación visual **Grad-CAM**, y genera salidas para el usuario en:
 
-La app corre:
-- **Local** (opcional) con Python + `uv`
-- **Docker** (recomendado para el equipo) usando **Xvfb + VNC + noVNC** para ver la GUI desde el navegador
+- **CSV histórico** (registro de predicciones)
+- **PDF clínico** (datos del paciente + imagen original + heatmap Grad-CAM + resultado)
+
+La app puede ejecutarse:
+
+- **Local** (Python + `uv`)
+- **Docker** (recomendado para el equipo): GUI vía **Xvfb + VNC + noVNC** (se ve desde el navegador)
 
 ---
 
-## 1) Requisitos (para el equipo)
+## 1) Requisitos
 
-- Git instalado
-- Docker Desktop instalado y funcionando
+### Local
+- Python 3.10+ (recomendado 3.10/3.11)
+- `uv` instalado
+
+### Docker
+- Docker Desktop funcionando
 - (Opcional) GitHub Desktop
 
-> Nota: en Docker la GUI no se abre como ventana nativa de Windows; se abre por navegador en noVNC.
+> En Docker la GUI **no** se abre como ventana nativa; se abre en el navegador con **noVNC**.
 
 ---
 
 ## 2) Estructura del proyecto
 
-Código fuente (paquete):
+### Código fuente (paquete)
 ```
 
 src/
 neumonia_app/
+**init**.py
 main.py
 integrator.py
-load_model.py
 read_img.py
 preprocess_img.py
+load_model.py
 grad_cam.py
+gui/
+state.py
+theme.py
+image_utils.py
+data_client_services.py
 
 ```
 
-Archivos Docker:
+### Tests
+```
+
+test/
+test_read_img.py
+test_preprocess_img.py
+test_predict_basic.py
+
+```
+
+### Docker
 ```
 
 Dockerfile
 docker/start_gui.sh
-requirements.docker.txt
 docker-compose.yml
+requirements.docker.txt
 
 ````
 
-Carpetas **locales** (NO se suben a Git):
-- `models/` → aquí va el modelo `.h5`
-- `data/input/` → imágenes para pruebas (DICOM/JPG)
-- `data/output/` → PDFs y CSV generados
-
 ---
 
-## 3) Preparación local (carpetas y archivos que NO están en Git)
+## 3) Carpetas locales (NO se suben a Git)
 
-En la raíz del repo, crear estas carpetas:
+Crea estas carpetas en la raíz del repo:
 
-### Windows (PowerShell)
+- `models/` → modelo `.h5`
+- `data/input/` → imágenes de prueba (DICOM/JPG/PNG)
+- `data/output/` → PDFs y CSV generados
+
+### Crear carpetas
+
+**Windows (PowerShell)**
 ```powershell
 mkdir models
 mkdir data
 mkdir data\input
 mkdir data\output
-mkdir assets
-mkdir assets\samples
-mkdir assets\samples\DICOM
-mkdir assets\samples\JPG
 ````
 
-### Linux/macOS (bash)
+**Linux/macOS (bash)**
 
 ```bash
-mkdir -p models data/input data/output assets/samples/DICOM assets/samples/JPG
-```
-
-### 3.1) Agregar el modelo `.h5` (OBLIGATORIO)
-
-Coloca el archivo del modelo aquí:
-
-```
-models/conv_MLP_84.h5
-```
-
-> Si tu modelo se llama diferente, no hay problema, pero entonces debes actualizar la variable `NEUMONIA_MODEL_PATH` en el `docker-compose.yml` o renombrarlo.
-
-### 3.2) Agregar imágenes de ejemplo (OPCIONAL)
-
-Coloca algunas imágenes para pruebas:
-
-* DICOM: `assets/samples/DICOM/*.dcm`
-* JPG/PNG: `assets/samples/JPG/*.(jpg|png)`
-
-Para que la app las vea dentro del contenedor, copia algunas también a:
-
-* `data/input/`
-
-Ejemplo:
-
-```
-data/input/ejemplo1.dcm
-data/input/ejemplo2.jpg
+mkdir -p models data/input data/output
 ```
 
 ---
 
-## 4) Docker (recomendado)
+## 4) Modelo (CRÍTICO)
 
-### 4.1) ¿Cómo funciona la GUI en Docker?
+### 4.1 Opción 1 (recomendada): ruta fija por variable de entorno
 
-Dentro del contenedor se levanta un display virtual (Xvfb) y se expone por:
+Debes definir la variable:
 
-* **VNC** en el puerto `5900`
-* **noVNC (web)** en el puerto `6080`
+* `NEUMONIA_MODEL_PATH` → ruta absoluta al modelo `.h5`
 
-Tú vas a ver la GUI en tu navegador:
+Ejemplos:
 
-* [http://localhost:6080/vnc.html](http://localhost:6080/vnc.html)
+**Windows PowerShell**
 
-### 4.2) Conexión entre carpetas (volúmenes)
+```powershell
+$env:NEUMONIA_MODEL_PATH="C:\ruta\al\repo\models\mi_modelo.h5"
+```
 
-Docker monta estas carpetas del host al contenedor:
+**Windows CMD**
 
-| Host (tu PC)    | Contenedor         | Uso                  |
-| --------------- | ------------------ | -------------------- |
-| `./src`         | `/app/src`         | Código (modo dev)    |
-| `./models`      | `/app/models`      | Modelo `.h5`         |
-| `./data/input`  | `/app/data/input`  | Imágenes de prueba   |
-| `./data/output` | `/app/data/output` | PDFs y CSV generados |
+```bat
+set NEUMONIA_MODEL_PATH=C:\ruta\al\repo\models\mi_modelo.h5
+```
 
-Así, si agregas imágenes nuevas a `data/input/` **después** de construir la imagen, el contenedor las ve inmediatamente (porque es un volumen).
+**Linux/macOS**
+
+```bash
+export NEUMONIA_MODEL_PATH="/ruta/al/repo/models/mi_modelo.h5"
+```
+
+> Esta es la forma más robusta para local y Docker.
+
+### 4.2 Opción 2 (fallback): búsqueda automática de `.h5`
+
+Si **NO** defines `NEUMONIA_MODEL_PATH`, el loader buscará automáticamente un archivo `*.h5` en carpetas típicas del proyecto (ej. `models/`, `./`, etc.) y:
+
+* si hay **uno**, usa ese
+* si hay **varios**, toma el **más reciente**
+
+**Recomendación**: en `models/` deja un solo `.h5` para evitar confusión.
 
 ---
 
-## 5) Comandos exactos para construir y correr
+## 5) Rutas críticas en Docker (volúmenes)
 
-### Opción A — Docker Compose (recomendado)
+En Docker se montan típicamente:
 
-En la raíz:
+| Host (tu PC)    | Contenedor         | Uso                |
+| --------------- | ------------------ | ------------------ |
+| `./src`         | `/app/src`         | Código             |
+| `./models`      | `/app/models`      | Modelo `.h5`       |
+| `./data/input`  | `/app/data/input`  | Imágenes de prueba |
+| `./data/output` | `/app/data/output` | PDFs + CSV         |
+
+### Dentro de la GUI (noVNC)
+
+* Cargar imagen desde: `/app/data/input`
+* Guardar PDF/CSV en: `/app/data/output`
+
+---
+
+## 6) Ejecución local con `uv`
+
+### 6.1 Instalar dependencias
+
+```bash
+uv pip install -r requirements.txt
+```
+
+### 6.2 Ejecutar la GUI
+
+Desde la raíz del repo:
+
+```bash
+uv run python -m src.neumonia_app.main
+```
+
+> Si tu entrypoint local es distinto (por ejemplo `python src/neumonia_app/main.py`), úsalo, pero mantén el `NEUMONIA_MODEL_PATH` configurado.
+
+---
+
+## 7) Ejecución en Docker (recomendado)
+
+### 7.1 Levantar con Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-Luego abre:
+Abrir en el navegador:
 
-* [http://localhost:6080/vnc.html](http://localhost:6080/vnc.html)
+* `http://localhost:6080/vnc.html`
 
 Para detener:
 
@@ -151,132 +195,138 @@ Para detener:
 docker compose down
 ```
 
-### Opción B — Docker Build + Docker Run (alternativa)
+### 7.2 Variable del modelo en Docker
 
-Construir la imagen:
+Asegúrate de que tu `docker-compose.yml` contenga algo como:
+
+* `NEUMONIA_MODEL_PATH=/app/models/<tu_modelo>.h5`
+
+y que el archivo exista en `models/`.
+
+---
+
+## 8) Correr tests
+
+### 8.1 Local con `uv`
+
+Desde la raíz del repo:
+
+**Linux/macOS**
 
 ```bash
-docker build -t neumonia-gui .
+PYTHONPATH=src uv run pytest -q
 ```
 
-Correr el contenedor (ejemplo PowerShell):
+**Windows PowerShell**
 
 ```powershell
-docker run --rm -it `
-  -p 6080:6080 -p 5900:5900 `
-  -e NEUMONIA_MODEL_PATH=/app/models/conv_MLP_84.h5 `
-  -v "${PWD}\src:/app/src" `
-  -v "${PWD}\models:/app/models:ro" `
-  -v "${PWD}\data\input:/app/data/input:ro" `
-  -v "${PWD}\data\output:/app/data/output" `
-  neumonia-gui
+$env:PYTHONPATH="src"
+uv run pytest -q
 ```
 
----
+### 8.2 Docker con `uv`
 
-## 6) Desarrollo: ver cambios en `src` dentro del contenedor
-
-### 6.1) Caso normal (sin autoreload)
-
-Si editas un `.py` en `src/`, el contenedor **sí ve el archivo nuevo**, pero Python/Tkinter normalmente requiere reinicio para cargarlo.
-
-Reiniciar el contenedor:
+Si `uv` está instalado dentro de tu imagen:
 
 ```bash
-docker compose restart neumonia-gui
+docker compose run --rm neumonia-gui sh -lc 'PYTHONPATH=src uv run pytest -q'
 ```
 
-## 7) Uso dentro de la GUI (en noVNC)
-
-### Cargar imagen
-
-Desde el file picker, navega a:
-
-* `/app/data/input`  (recomendado para pruebas)
-
-### Guardar PDF/CSV
-
-Selecciona como carpeta:
-
-* `/app/data/output`
-
-Esto se reflejará en tu PC en:
-
-* `data/output/`
+> Cambia `neumonia-gui` por el nombre real del servicio en tu `docker-compose.yml`.
 
 ---
 
-## 8) Errores comunes
+## 9) Descripción de módulos (arquitectura y responsabilidades)
 
-### “No se encontró el modelo .h5…”
+### Núcleo (Core)
 
-Verifica:
+* **`integrator.py`**
+  Orquestador oficial del pipeline. Coordina:
 
-* Que exista `models/conv_MLP_84.h5`
-* Que el `docker-compose.yml` esté apuntando bien a `NEUMONIA_MODEL_PATH=/app/models/conv_MLP_84.h5`
+  * lectura (`read_img.py`)
+  * preprocesamiento (`preprocess_img.py`)
+  * carga del modelo (`load_model.py`) con cache `_model`
+  * inferencia + Grad-CAM (`grad_cam.py`)
 
-### Mensaje CUDA / cuInit error
+* **`read_img.py`**
+  Lectura de:
 
-Si ves errores tipo CUDA, normalmente es TensorFlow intentando usar GPU. No suele ser fatal: continúa en CPU.
+  * DICOM (`pydicom`) → convierte a PIL y BGR
+  * JPG/PNG (`cv2`) → convierte a PIL y BGR
+    Retorna siempre: `(array_bgr, img_pil)`.
+
+* **`preprocess_img.py`**
+  Preprocesamiento “puro” (sin IO):
+  resize/gray/CLAHE/normalización → batch listo para Keras.
+
+* **`load_model.py`**
+  Resuelve la ruta del modelo y lo carga con `tf.keras.models.load_model(...)`.
+  Prioriza:
+
+  1. `model_path` explícito (si se pasa)
+  2. variable de entorno `NEUMONIA_MODEL_PATH`
+  3. búsqueda automática `*.h5` en rutas típicas
+
+* **`grad_cam.py`**
+  Servicio de predicción y Grad-CAM:
+
+  * produce `label`, `proba_pct`, `heatmap_rgb`
+  * `layer_name` tiene fallback automático si el nombre cambia (evita rompimientos por cambio de modelo)
+
+### GUI (Interfaz)
+
+* **`main.py`**
+  Solo UI (Tkinter): pantallas, validaciones de formulario, render de imágenes, interacción con usuario.
+  No implementa pipeline ML ni generación de documentos; delega.
+
+* **`gui/state.py`**
+  Modelos POO de estado (`Patient`, `AppState`) + conversores seguros (`safe_float`, `safe_int`).
+
+* **`gui/theme.py`**
+  Tema visual (colores/estilos) y helper de “cards”.
+
+* **`gui/image_utils.py`**
+  Utilidades de imagen para UI (ajustes de tamaño, formato de labels).
+
+* **`gui/data_client_services.py`**
+  Servicios de salida al usuario:
+
+  * `ensure_output_dir` (gestiona selección/creación de carpeta)
+  * `save_csv_history` (historial)
+  * `save_pdf_report`/`generate_pdf_report` (PDF clínico)
 
 ---
 
-## 9) Flujo Git recomendado (equipo)
+## 10) Errores comunes
 
-* No trabajar directo en `main`
-* Trabajar en tu rama `dev/<nombre>`
-* Hacer Pull Request hacia `develop`
+### “No se encontró un archivo de modelo (.h5)”
 
-Comandos:
+* Asegura que `NEUMONIA_MODEL_PATH` apunta a un `.h5` real
+* o deja un único `.h5` dentro de `models/`
 
-```bash
-git fetch origin
-git checkout dev/<tu-nombre>
-git pull
-```
+### Logs CUDA / cuInit en Docker
 
-Luego:
+TensorFlow puede intentar inicializar GPU. Normalmente no es fatal (corre CPU).
+Si quieres silenciar/forzar CPU, usa env vars en Docker:
 
-```bash
-git add .
-git commit -m "mensaje"
-git push
-```
-
-Y abrir PR: `dev/<tu-nombre>` → `develop`
+* `CUDA_VISIBLE_DEVICES=-1`
+* `TF_CPP_MIN_LOG_LEVEL=2` (o 3)
 
 ---
 
-## 10) Notas finales
-
-* No subir a Git: `models/`, `data/`, `assets/samples/` (datasets o archivos sensibles/pesados)
-* Todo lo de Docker GUI está gestionado por: `docker/start_gui.sh`
-
-## Licencia
-
-Este proyecto puede ser distribuido bajo una licencia open-source.  
+## 11) Licencia
+Este proyecto puede ser distribuido bajo una licencia open-source.
 Las opciones recomendadas para este tipo de proyecto (Deep Learning + investigación) son:
 
-### MIT License
-- Permite uso comercial
-- Permite modificación y redistribución
-- Muy simple y permisiva
-- Solo exige mantener el aviso de copyright
-
-### Apache License 2.0
-- Permite uso comercial
-- Permite modificación y redistribución
-- Incluye protección explícita de patentes
-- Más formal y usada en proyectos grandes (ej. TensorFlow)
-
----
-
-Cómo agregar una licencia al repositorio
-
-Crear el archivo `LICENSE` en la raíz del proyecto:
-
-```powershell
-New-Item -ItemType File .\LICENSE
-
-```
-
+MIT License
+Permite uso comercial
+Permite modificación y redistribución
+Muy simple y permisiva
+Solo exige mantener el aviso de copyright
+Apache License 2.0
+Permite uso comercial
+Permite modificación y redistribución
+Incluye protección explícita de patentes
+Más formal y usada en proyectos grandes (ej. TensorFlow)
+License
+MIT — see LICENSE for details.

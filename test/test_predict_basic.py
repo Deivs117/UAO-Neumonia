@@ -1,24 +1,33 @@
 from __future__ import annotations
 
+"""Tests unitarios para predicción básica (sin TensorFlow real)."""
+
 import numpy as np
-from neumonia_app.grad_cam import GradCamService, PredictionResult
+
+from src.neumonia_app.grad_cam import GradCamService, PredictionResult
 
 
 class FakeTensor:
-    def __init__(self, name: str):
+    """Tensor mínimo para simular `model.inputs[0].name` en Keras."""
+
+    def __init__(self, name: str) -> None:
         self.name = name
 
 
 class FakeModel:
-    def __init__(self, preds: np.ndarray):
+    """Modelo mínimo con método `predict()` para simular Keras."""
+
+    def __init__(self, preds: np.ndarray) -> None:
         self.inputs = [FakeTensor("input_1:0")]
         self._preds = preds
 
     def predict(self, packed_input, verbose: int = 0):
+        """Retorna predicciones predefinidas."""
         return self._preds
 
 
-def test_predict_basic():
+def test_predict_basic() -> None:
+    """Debe mapear la clase con mayor probabilidad y retornar PredictionResult."""
     # Arrange
     service = GradCamService(class_names=("bacteriana", "normal", "viral"))
     batch = np.zeros((1, 512, 512, 1), dtype=np.float32)
