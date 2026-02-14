@@ -252,11 +252,6 @@ Y abrir PR: `dev/<tu-nombre>` → `develop`
 * No subir a Git: `models/`, `data/`, `assets/samples/` (datasets o archivos sensibles/pesados)
 * Todo lo de Docker GUI está gestionado por: `docker/start_gui.sh`
 
-```
-
----
----
-
 ## Licencia
 
 Este proyecto puede ser distribuido bajo una licencia open-source.  
@@ -282,3 +277,6 @@ Crear el archivo `LICENSE` en la raíz del proyecto:
 
 ```powershell
 New-Item -ItemType File .\LICENSE
+
+```
+
