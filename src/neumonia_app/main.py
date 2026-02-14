@@ -16,7 +16,8 @@ from PIL import Image, ImageTk
 from .gui.theme import apply_clinical_theme, PANEL_BG, card
 from .gui.image_utils import fit_box, pretty_label
 from .gui.state import Patient, AppState, safe_float, safe_int
-from .gui.services import InferenceService, ReportService
+from .gui.services import ReportService
+from .integrator import Integrator
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
@@ -34,7 +35,7 @@ class App(tk.Tk):
         self.geometry("1040x740")
         self.minsize(980, 680)
 
-        self.svc = InferenceService()
+        self.integrator = Integrator()
         self.reports = ReportService()
 
         self.state = AppState()
@@ -266,7 +267,7 @@ class App(tk.Tk):
         self.btn_next.grid()
         self._update_wizard_buttons()
 
-        self.status_var.set("Escena 1/2: registre los datos del paciente y adjunte una radiografía.")
+        self.status_var.set("Registre los datos del paciente y adjunte una radiografía.")
         self.after_idle(self._render_all_panels)
 
     def go_prediction(self) -> None:
@@ -281,7 +282,7 @@ class App(tk.Tk):
         self.btn_predict.state(["!disabled"] if self.state.filepath else ["disabled"])
 
         self._update_patient_summary()
-        self.status_var.set("Escena 2/2: ejecute la predicción y luego guarde CSV/PDF.")
+        self.status_var.set("Ejecute la predicción y luego guarde CSV/PDF.")
         self.after_idle(self._render_all_panels)
 
     # ===== Helpers =====
@@ -432,7 +433,7 @@ class App(tk.Tk):
 
         self.state.filepath = filepath
 
-        self.state.array_bgr, self.state.original_pil = self.svc.load_image(filepath)
+        self.state.array_bgr, self.state.original_pil = self.integrator.LoadImage(filepath)
         self.state.clear_prediction()
 
         self.pred_var.set("")
@@ -454,7 +455,10 @@ class App(tk.Tk):
         self.status_var.set("Ejecutando predicción...")
         self.update_idletasks()
 
-        label, proba, heatmap_rgb = self.svc.predict(self.state.filepath)
+        if self.state.array_bgr is None:
+            showinfo(title="Predecir", message="No se encontró la imagen cargada en memoria.")
+            return
+        label, proba, heatmap_rgb = self.integrator.Run(self.state.array_bgr)
 
         self.state.label = label
         self.state.proba = float(proba)
