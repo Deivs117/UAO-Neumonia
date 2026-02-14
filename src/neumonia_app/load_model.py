@@ -18,29 +18,16 @@ class ModelLoader:
     """
     model_path: Optional[str] = None
 
-    # Nombres típicos del archivo del modelo
-    candidates: Tuple[str, ...] = (
-        "conv_MLP_84.h5",
-        "WilhemNet86.h5",
-        "model.h5",
-        "best_model.h5",
-        "model.keras",
-        "best_model.keras",
-    )
-
     def _repo_root(self) -> Path:
         """
-        Intenta inferir el root del repo:
-        .../UAO-Neumonia/src/neumonia_app/load_model.py
-                     ^^^^^^^^^^^ = repo root
+        Intenta inferir el root del proyecto sin depender del nombre del repo.
+        Heurística: subir directorios hasta encontrar un marcador típico.
         """
         here = Path(__file__).resolve()
-        # load_model.py está en src/neumonia_app/, así que parents[2] suele ser repo root
-        # (0=load_model.py, 1=neumonia_app, 2=src, 3=repo) -> ojo: en tu estructura real es parents[2] o parents[3]
-        # Usamos heurística: buscamos carpeta "src" en parents y tomamos su parent como root.
+        markers = (".git", "pyproject.toml", "requirements.txt")
         for p in here.parents:
-            if p.name == "src":
-                return p.parent
+            if any((p / m).exists() for m in markers):
+                return p
         # fallback: 3 niveles arriba
         return here.parents[3]
 
@@ -86,16 +73,20 @@ class ModelLoader:
         )
 
         for d in search_dirs:
-            for name in self.candidates:
-                p = d / name
-                if p.exists():
-                    return p
+            if not d.exists() or not d.is_dir():
+                continue
+            h5_files = list(d.glob("*.h5"))
+            if not h5_files:
+                continue
+            if len(h5_files) == 1:
+                return h5_files[0]
+            h5_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+            return h5_files[0]
 
         raise FileNotFoundError(
-            "No se encontró un archivo de modelo. "
-            f"Probé: {self.candidates} en {', '.join(str(x) for x in search_dirs)}.\n\n"
-            "Sugerencia: en local coloca el modelo en <repo>/models/conv_MLP_84.h5 "
-            "o pasa model_path explícitamente."
+            "No se encontró un archivo de modelo (.h5). "
+            f"Busqué *.h5 en {', '.join(str(x) for x in search_dirs)}.\n\n"
+            "Sugerencia: pasa model_path explícitamente si quieres fijar una ruta."
         )
 
     def load(self) -> tf.keras.Model:

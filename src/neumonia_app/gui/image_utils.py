@@ -37,35 +37,3 @@ def pretty_label(label: str) -> str:
     if l == "bacteriana":
         return "Neumonía bacteriana"
     return (label or "").strip()
-
-
-def default_report_text(label: str) -> str:
-    l = (label or "").strip().lower()
-
-    if l == "normal":
-        return (
-            "Resultado sugerido por el modelo: NORMAL (sin hallazgos compatibles con neumonía).\n\n"
-            "Interpretación: La radiografía no presenta patrones típicos de neumonía según el modelo.\n\n"
-            "Nota: Este resultado es una estimación automatizada y NO constituye un diagnóstico.\n"
-            "La interpretación final debe realizarla personal médico."
-        )
-    if l == "viral":
-        return (
-            "Resultado sugerido por el modelo: NEUMONÍA VIRAL.\n\n"
-            "Interpretación: El modelo detecta patrones radiográficos compatibles con neumonía de origen viral.\n\n"
-            "Nota: Este resultado es una estimación automatizada y NO constituye un diagnóstico.\n"
-            "La interpretación final debe realizarla personal médico."
-        )
-    if l == "bacteriana":
-        return (
-            "Resultado sugerido por el modelo: NEUMONÍA BACTERIANA.\n\n"
-            "Interpretación: El modelo detecta patrones radiográficos compatibles con neumonía de origen bacteriano.\n\n"
-            "Nota: Este resultado es una estimación automatizada y NO constituye un diagnóstico.\n"
-            "La interpretación final debe realizarla personal médico."
-        )
-
-    return (
-        f"Resultado sugerido por el modelo: {pretty_label(label)}\n\n"
-        "Nota: Este resultado es una estimación automatizada y NO constituye un diagnóstico.\n"
-        "La interpretación final debe realizarla personal médico."
-    )

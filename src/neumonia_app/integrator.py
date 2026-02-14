@@ -47,7 +47,9 @@ class Integrator:
         return batch, array_bgr
 
     def LoadModel(self) -> tf.keras.Model:
-        return self.model_loader.load()
+        if self._model is None:
+            self._model = self.model_loader.load()
+        return self._model
 
     def Run(self, array_bgr: np.ndarray) -> Tuple[str, float, np.ndarray]:
         """

@@ -404,16 +404,6 @@ class App(tk.Tk):
         self.status_var.set(f"Carpeta de salida seleccionada: {self.state.output_dir}")
         showinfo(title="Carpeta de salida", message=f"Carpeta seleccionada:\n{self.state.output_dir}")
 
-    def ensure_output_dir(self) -> bool:
-        if self.state.output_dir and os.path.isdir(self.state.output_dir):
-            return True
-        folder = filedialog.askdirectory(title="Seleccione carpeta para guardar PDFs y CSV")
-        if not folder:
-            showinfo(title="Carpeta de salida", message="No se seleccionó carpeta de salida.")
-            return False
-        self.state.output_dir = folder
-        return True
-
     def load_img_file(self) -> None:
         filepath = filedialog.askopenfilename(
             title="Seleccionar imagen",
@@ -480,8 +470,16 @@ class App(tk.Tk):
         if self.state.label is None or self.state.proba is None:
             showinfo(title="Guardar", message="Primero realiza una predicción.")
             return
-        if not self.ensure_output_dir():
+        out_dir = self.reports.ensure_output_dir(
+            current_dir=self.state.output_dir,
+            ask_directory=lambda: filedialog.askdirectory(
+                title="Seleccione carpeta para guardar PDFs y CSV"
+            ),
+            on_cancel=showinfo,
+        )
+        if not out_dir:
             return
+        self.state.output_dir = out_dir
 
         csv_path = self.reports.save_csv_history(
             output_dir=self.state.output_dir,
@@ -506,8 +504,16 @@ class App(tk.Tk):
         if self.state.original_pil is None:
             showinfo(title="PDF", message="No se encontró la imagen original para el reporte.")
             return
-        if not self.ensure_output_dir():
+        out_dir = self.reports.ensure_output_dir(
+            current_dir=self.state.output_dir,
+            ask_directory=lambda: filedialog.askdirectory(
+                title="Seleccione carpeta para guardar PDFs y CSV"
+            ),
+            on_cancel=showinfo,
+        )
+        if not out_dir:
             return
+        self.state.output_dir = out_dir
 
         pdf_path = self.reports.save_pdf_report(
             output_dir=self.state.output_dir,

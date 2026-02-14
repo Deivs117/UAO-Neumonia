@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 import csv
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Callable, Optional
 
 import numpy as np
 from PIL import Image
@@ -16,6 +16,24 @@ from .image_utils import pretty_label
 
 class ReportService:
     CSV_FILENAME = "historial.csv"
+
+    def ensure_output_dir(
+        self,
+        *,
+        current_dir: Optional[str],
+        ask_directory: Callable[[], str],
+        on_cancel: Callable[..., None],
+    ) -> Optional[str]:
+        if current_dir and os.path.isdir(current_dir):
+            return current_dir
+
+        folder = ask_directory()
+        if not folder:
+            on_cancel(title="Carpeta de salida", message="No se seleccionó carpeta de salida.")
+            return None
+
+        os.makedirs(folder, exist_ok=True)
+        return folder
 
     def _safe_doc_token(self, doc_num: str) -> str:
         token = "".join(ch for ch in (doc_num or "") if ch.isalnum() or ch in ("-", "_"))

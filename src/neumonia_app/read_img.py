@@ -61,14 +61,3 @@ class ReadGlobal:
             return self._std.read(path)
 
         raise ValueError(f"Extensión no soportada: {ext}")
-
-    # ===============================
-    # Wrapper elegante como método estático
-    # ===============================
-    @staticmethod
-    def load(path: str) -> Tuple[np.ndarray, Image.Image]:
-        """
-        Método de acceso rápido sin necesidad
-        de instanciar explícitamente la clase.
-        """
-        return ReadGlobal().read(path)

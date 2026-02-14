@@ -29,6 +29,37 @@ class GradCamService:
     class_names: Tuple[str, ...] = ("bacteriana", "normal", "viral")
     out_size: int = 512
 
+    def _resolve_layer_name(self, model: tf.keras.Model) -> str:
+        """
+        Resuelve el nombre de la capa conv para Grad-CAM.
+        - Si self.layer_name existe en el modelo -> úsala.
+        - Si no existe -> usa la última capa convolucional compatible encontrada.
+        """
+        try:
+            model.get_layer(self.layer_name)
+            return self.layer_name
+        except Exception:
+            pass
+
+        conv_types = (
+            tf.keras.layers.Conv2D,
+            tf.keras.layers.SeparableConv2D,
+            tf.keras.layers.DepthwiseConv2D,
+            tf.keras.layers.Conv3D,
+        )
+
+        for layer in reversed(model.layers):
+            if isinstance(layer, conv_types):
+                return layer.name
+
+        # fallback: última capa con salida 4D (batch, h, w, c)
+        for layer in reversed(model.layers):
+            shape = getattr(layer, "output_shape", None)
+            if isinstance(shape, tuple) and len(shape) == 4:
+                return layer.name
+
+        raise ValueError("No se encontró una capa convolucional compatible para Grad-CAM.")
+
     def _pack_input(self, model: tf.keras.Model, batch: np.ndarray):
         """
         Adapta el formato esperado del modelo para prevención de warnings desde keras.
@@ -81,7 +112,7 @@ class GradCamService:
 
         grad_model = tf.keras.models.Model(
             inputs=model.inputs,
-            outputs=[model.get_layer(self.layer_name).output, out_tensor],
+            outputs=[model.get_layer(self._resolve_layer_name(model)).output, out_tensor],
         )
 
         with tf.GradientTape() as tape:
