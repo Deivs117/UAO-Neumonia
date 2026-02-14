@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-import csv
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Any, Tuple
@@ -16,7 +14,7 @@ from reportlab.pdfgen import canvas
 from src.neumonia_app.integrator import Integrator
 from src.neumonia_app.read_img import ReadGlobal
 
-from .image_utils import pretty_label, default_report_text
+from .image_utils import default_report_text
 
 
 class InferenceService:
