@@ -269,6 +269,10 @@ Las opciones recomendadas para este tipo de proyecto (Deep Learning + investigac
 - Incluye protección explícita de patentes
 - Más formal y usada en proyectos grandes (ej. TensorFlow)
 
+### License
+MIT — see `LICENSE` for details.
+
+
 ---
 
 Cómo agregar una licencia al repositorio
@@ -277,6 +281,7 @@ Crear el archivo `LICENSE` en la raíz del proyecto:
 
 ```powershell
 New-Item -ItemType File .\LICENSE
+
 
 ```
 
