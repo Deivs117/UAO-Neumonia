@@ -255,3 +255,30 @@ Y abrir PR: `dev/<tu-nombre>` → `develop`
 ```
 
 ---
+---
+
+## Licencia
+
+Este proyecto puede ser distribuido bajo una licencia open-source.  
+Las opciones recomendadas para este tipo de proyecto (Deep Learning + investigación) son:
+
+### MIT License
+- Permite uso comercial
+- Permite modificación y redistribución
+- Muy simple y permisiva
+- Solo exige mantener el aviso de copyright
+
+### Apache License 2.0
+- Permite uso comercial
+- Permite modificación y redistribución
+- Incluye protección explícita de patentes
+- Más formal y usada en proyectos grandes (ej. TensorFlow)
+
+---
+
+Cómo agregar una licencia al repositorio
+
+Crear el archivo `LICENSE` en la raíz del proyecto:
+
+```powershell
+New-Item -ItemType File .\LICENSE
